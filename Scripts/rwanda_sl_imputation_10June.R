@@ -17,8 +17,8 @@ library(here)
 
 #******************************************************************************************#
 # Set working directory 
-filepath <- "../Data"
-plot_dir <- "../Plots/Paper 7"
+filepath <- "Data"
+plot_dir <- "Plots/Paper 7"
 #******************************************************************************************#
 
 #******************************************************************************************#
@@ -193,6 +193,46 @@ na_seadec_correctedData <- na_seadec_correctedData %>%
   mutate(Light.demand.W=Negative.System.Battery.Power.W_Kalman*0.7744,
          Actual.Light.laod.W=Negative.Actual.Battery.Power.W*0.7744)
 write.csv(na_seadec_correctedData, file=here(filepath,"na_seadec_correctedData.csv"), row.names=FALSE)
+
+# Read data and calculate typical data values
+na_seadec_correctedData <- read.csv(here(filepath,"na_seadec_correctedData.csv"), header=TRUE, stringsAsFactors=FALSE)
+# Potential PV, Charge power, Discharge power, Actual PV, Total load (actual AC+actual light); capture loss; SoC
+system_sub <- na_seadec_correctedData[,c(1,3,16,20,21,23,35,36,38)]
+system_sub <- system_sub %>% mutate(load = abs(Actual.AC.consumption.W)+abs(Actual.Light.laod.W),
+                                    loss = Potential.PV.power.W - Actual.PV.power.W,
+                                    State.of.Charge.W=State.of.Charge.W*100/3072)
+system_sub <- system_sub[,-c(6,9)]
+colnames(system_sub) <- c("streetlight","timeUse","E_p","SoC","E_a","B_cp","B_dp","E_load","L_c")
+
+# Calculate typical values for each SL
+system_sub <- gather(system_sub, id, value, 3:9)
+system_typical <- system_sub %>% group_by(streetlight, timeUse, id) %>% summarise(value=mean(value, na.rm=TRUE))
+system_typical <- as.data.frame(system_typical)
+system_typical <- spread(system_typical, id, value)
+
+# Plot typical values for each SL
+plotTypical <- function(df) {
+  ggplot(df, aes(x=timeUse)) + geom_line(aes(y=B_cp/1000.0, color="B_cp"),linetype=1) +
+    geom_line(aes(y=abs(B_dp)/1000.0, color="B_dp"),linetype=2) + geom_line(aes(y=E_a/1000.0, color="E_a"),linetype=3) +
+    geom_line(aes(y=E_load/1000.0, color="E_load"),linetype=4) + geom_line(aes(y=E_p/1000.0, color="E_p"),linetype=5) +
+    geom_line(aes(y=L_c/1000.0, color="L_c"),linetype=6) + geom_line(aes(y = SoC/400, color = "SoC", group="SoC"), linetype=7)+ 
+    scale_y_continuous(breaks= seq(0,0.25,0.05), sec.axis = sec_axis(~.*400, name = "SoC (%)")) +
+    labs(y="Energy (kWh)", x = "Time of day", colour="Parameter") +
+    scale_x_continuous(breaks=seq(0,24,by=2)) + theme(plot.title = element_text(size=10), legend.position = "bottom",
+                                                      legend.box = "horizontal",  legend.key.size = unit(0.5, "cm"), legend.margin = margin(t=0,r=0,b=0,l=0))
+}
+plotTypical(system_typical[system_typical$streetlight=="SL1",]) + 
+  labs(title="Actual Rwanda SL1 power profile for a typical day from July 2019 to Mar 2020")
+ggsave(here(plot_dir,"typical_day_sl1_imputed.png"))
+plotTypical(system_typical[system_typical$streetlight=="SL2",]) + 
+  labs(title="Actual Rwanda SL2 power profile for a typical day from July 2019 to Mar 2020")
+ggsave(here(plot_dir,"typical_day_sl2_imputed.png"))
+plotTypical(system_typical[system_typical$streetlight=="SL3",]) + 
+  labs(title="Actual Rwanda SL3 power profile for a typical day from July 2019 to Mar 2020")
+ggsave(here(plot_dir,"typical_day_sl3_imputed.png"))
+plotTypical(system_typical[system_typical$streetlight=="SL4",]) + 
+  labs(title="Actual Rwanda SL4 power profile for a typical day from July 2019 to Mar 2020")
+ggsave(here(plot_dir,"typical_day_sl4_imputed.png"))
 #******************************************************************************************#
 
 #******************************************************************************************#

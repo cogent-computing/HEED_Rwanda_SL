@@ -25,8 +25,8 @@ library(here)
 
 #******************************************************************************************#
 # Set working directory 
-filepath <- "../Data"
-plot_dir <- "../Plots/Paper 7"
+filepath <- "Data"
+plot_dir <- "Plots/Paper 7"
 #******************************************************************************************#
 
 #******************************************************************************************#
@@ -301,8 +301,8 @@ ggsave(here(plot_dir,"ac_consumption.png"))
 
 #******************************************************************************************#
 # Get full data days for all SL
-df <- system_hourly[,c(1,2,3,5,10,12,13,14,16,17)]
-df <- df[df$na_count==0,-10]
+df <- system_hourly[,c(1,2,3,5,10,11,12,13,14,16,17)]
+df <- df[df$na_count==0,-11]
 sl_on_hours <- df %>% group_by(streetlight, date) %>% summarise(onHours = length(PV.power.W))
 sl_on_hours <- as.data.frame(sl_on_hours[sl_on_hours$onHours==24,])
 # Consider all full days
@@ -372,12 +372,13 @@ na_seadec_imputedData <- na_seadec_imputedData %>%
                                                    paste(timeUse,":00:00",sep="")), sep=" "), origin="1970-01-01",tz="GMT"),
          month2 = factor(month, levels = c("Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar"),
                          labels = c("Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar")))
-write.csv(na_seadec_imputedData, file=here(filepath,"na_seadec_imputed_data.csv"), row.names=FALSE)
+write.csv(na_seadec_imputedData, file=here(filepath,"na_seadec_test_imputed_data.csv"), row.names=FALSE)
 
 # Calculating RMSE to get performance of na_seadec approach for each SL
 na_seadec_imputedData <- na_seadec_imputedData %>% 
   mutate(Battery.Monitor.Voltage.V = full_data$Battery.Monitor.Voltage.V,
          PV.power.W = full_data$PV.power.W,
+         Solar.Charger.Battery.watts.W = full_data$Solar.Charger.Battery.watts.W,
          Solar.Charger.Load.current.A = full_data$Solar.Charger.Load.current.A,
          System.overview.AC.Consumption.L1.W = full_data$System.overview.AC.Consumption.L1.W,
          System.overview.Battery.Power.W = full_data$System.overview.Battery.Power.W)
@@ -389,22 +390,39 @@ perf_na_seadec_sub <- na_seadec_sub %>% group_by(streetlight) %>%
   bind_cols(na_seadec_sub %>% group_by(streetlight) %>% 
               summarise_at(vars(matches("PV.power.W_")), ~RMSE(.x, PV.power.W))) %>%
   bind_cols(na_seadec_sub %>% group_by(streetlight) %>% 
+              summarise_at(vars(matches("Solar.Charger.Battery.watts.W_")), ~RMSE(.x, Solar.Charger.Battery.watts.W))) %>%
+  bind_cols(na_seadec_sub %>% group_by(streetlight) %>% 
               summarise_at(vars(matches("Solar.Charger.Load.current.A_")), ~RMSE(.x, Solar.Charger.Load.current.A))) %>% 
   bind_cols(na_seadec_sub %>% group_by(streetlight) %>% 
               summarise_at(vars(matches("System.overview.AC.Consumption.L1.W_")), ~RMSE(.x, System.overview.AC.Consumption.L1.W))) %>%
   bind_cols(na_seadec_sub %>% group_by(streetlight) %>% 
               summarise_at(vars(matches("System.overview.Battery.Power.W_")), ~RMSE(.x, System.overview.Battery.Power.W)))
 # Remove streetlight columns that are redundant and original data
-perf_na_seadec_sub <- perf_na_seadec_sub[,-c(7,9,15,17,23,25,31,33,39)]
-perf_na_seadec_sub <- gather(perf_na_seadec_sub, id, value, 2:31)
-ggplot(perf_na_seadec_sub[perf_na_seadec_sub$streetlight=="SL1",], aes(id, value)) + 
-  geom_bar(stat="identity", width=.3, position = "dodge") + theme(axis.text.x = element_text(angle=90))
-ggplot(perf_na_seadec_sub[perf_na_seadec_sub$streetlight=="SL2",], aes(id, value)) + 
-  geom_bar(stat="identity", width=.3, position = "dodge") + theme(axis.text.x = element_text(angle=90))
-ggplot(perf_na_seadec_sub[perf_na_seadec_sub$streetlight=="SL3",], aes(id, value)) + 
-  geom_bar(stat="identity", width=.3, position = "dodge") + theme(axis.text.x = element_text(angle=90))
-ggplot(perf_na_seadec_sub[perf_na_seadec_sub$streetlight=="SL4",], aes(id, value)) + 
-  geom_bar(stat="identity", width=.3, position = "dodge") + theme(axis.text.x = element_text(angle=90))
+perf_na_seadec_sub <- perf_na_seadec_sub[,-c(7,9,15,17,23,25,31,33,39,41,47)]
+perf_na_seadec_sub <- gather(perf_na_seadec_sub, id, value, 2:37)
+ggplot(perf_na_seadec_sub[perf_na_seadec_sub$id %in% unique(perf_na_seadec_sub$id)[c(1:6)],], aes(id, value)) + facet_wrap(~streetlight) + 
+  geom_bar(stat="identity", width=.3, position = "dodge") + theme(axis.text.x = element_text(angle=45)) +
+  scale_x_discrete(labels=c("Interpolation","Kalman","LOCF","MA","Mean",
+                            "Random")) + labs(y="RMSE (V)",x="na_seadec approach", title="RMSE for Voltage using na_seadec")
+ggsave(here(plot_dir,"rmse_seadec1.png")) 
+ggplot(perf_na_seadec_sub[perf_na_seadec_sub$id %in% unique(perf_na_seadec_sub$id)[c(19:24)],], aes(id, value)) + facet_wrap(~streetlight) + 
+  geom_bar(stat="identity", width=.3, position = "dodge") + theme(axis.text.x = element_text(angle=45)) +
+  scale_x_discrete(labels=c("Interpolation","Kalman","LOCF","MA","Mean",
+                            "Random")) + labs(y="RMSE (A)",x="na_seadec approach", title="RMSE for Load current using na_seadec")
+ggsave(here(plot_dir,"rmse_seadec2.png")) 
+ggplot(perf_na_seadec_sub[perf_na_seadec_sub$id %in% unique(perf_na_seadec_sub$id)[c(7:18,25:36)],], 
+       aes(id, value, fill=id)) + theme(axis.text.x = element_text(angle=90), legend.position = "none") +
+  facet_wrap(~streetlight) + labs(x="Variable", y="RMSE (W)", title="RMSE using na_seadec approach") +
+  geom_bar(stat="identity", width=.3, position = "dodge") + 
+  scale_x_discrete(labels=c("PV_power_interpolation","PV_power_kalman","PV_power_LOCF","PV_power_ma",
+                            "PV_power_mean","PV_power_random","Solar_battery_power_interpolation",
+                            "Solar_battery_power_kalman","Solar_battery_power_LOCF","Solar_battery_power_ma",
+                            "Solar_battery_power_mean","Solar_battery_power_random","AC_load_interpolation",
+                            "AC_load_kalman","AC_load_LOCF","AC_load_ma","AC_load_mean","AC_load_random",
+                            "System_battery_power_interpolation","System_battery_power_kalman",
+                            "System_battery_power_LOCF","System_battery_power_ma",
+                            "System_battery_power_mean","System_battery_power_random"))
+ggsave(here(plot_dir,"rmse_seadec3.png")) 
 
 # To conclude na_seadec approach is suitable for Battery Monitor Voltage, Solar Chager Load Current and 
 # System AC consumption - makes sense as these values are seasonal each day due to constant behaviour
@@ -423,12 +441,15 @@ ggplot(perf_na_seadec2, aes(id, value)) + facet_wrap(~streetlight) +
   geom_bar(stat="identity", width=.3, position = "dodge") + theme(axis.text.x = element_text(angle=90))
 
 # Compute statistics for original and imputed data
-na_seadec_sub <- gather(na_seadec_sub, id, value, c(4:39,43:47))
+na_seadec_sub <- gather(na_seadec_sub, id, value, c(4:46,50:55))
 stats_na_seadec_sub <- na_seadec_sub %>% group_by(streetlight, id) %>%
   summarise(mean = mean(value, na.rm=TRUE), median = median(value, na.rm=TRUE), sd = sd(value, na.rm=TRUE),
             skew = skewness(value, na.rm=TRUE), kurt = kurtosis(value, na.rm=TRUE))
 stats_na_seadec_sub <- as.data.frame(stats_na_seadec_sub)  
 stats_na_seadec_sub <- stats_na_seadec_sub[complete.cases(stats_na_seadec_sub),]
+stats_na_seadec_sub <- stats_na_seadec_sub %>% mutate(mean=round(mean,2), median=round(median,2),
+                                                      sd=round(sd,2), skew=round(skew,2), kurt=round(kurt,2))
+write.table(stats_na_seadec_sub, file = here(filepath,"stats_na_seadec.txt"), sep = ",", quote = FALSE, row.names = F)
 
 # Plot data to check mapping
 ggplot(na_seadec_sub[na_seadec_sub$streetlight=="SL1" & na_seadec_sub$id==unique(na_seadec_sub$id)[c(2,37)],], 
@@ -447,14 +468,16 @@ cor_sl4 <- symnum(cor(system_hourly[system_hourly$streetlight=="SL4",c(5,10,12,1
 # Potential PV power can be used to model PV power and Battery power
 # It is only weakly correlated to voltage and not correlated to voltage, current and ac load
 ggplot(system_hourly, aes(Potential_PV_power_W,PV.power.W)) + facet_wrap(~streetlight) +
-  geom_point() + geom_smooth(method = "auto") + geom_smooth(method = "lm", color="red") +
-  labs(x = "Potential PV power (W)" , y= "PV power (W)")
+  geom_point() + geom_smooth(method = "auto") + 
+  labs(x = "Potential PV power (W)" , y= "PV power (W)", title="PV power ~ Potential PV power")
+ggsave(here(plot_dir,"gam1.png")) 
 ggplot(system_hourly, aes(Potential_PV_power_W,System.overview.Battery.Power.W)) + facet_wrap(~streetlight) +
-  geom_point() + geom_smooth(method = "auto") + geom_smooth(method = "lm", color="red") +
-  labs(x = "Potential PV power (W)" , y= "Battery power (W)")
+  geom_point() + geom_smooth(method = "auto") + 
+  labs(x = "Potential PV power (W)" , y= "Battery power (W)", title="Battery power ~ Potential PV power")
+ggsave(here(plot_dir,"gam2.png")) 
 
 # Impute values using linear and non linear models with the function gam
-variables <- c("PV.power.W","System.overview.Battery.Power.W")
+variables <- c("PV.power.W", "System.overview.Battery.Power.W")
 gam_imputedData <- data.frame()
 for(k in seq_along(variables)) {
   x <- incomplete_data[c("streetlight","date","timeUse","Potential_PV_power_W",variables[k])]
@@ -492,7 +515,7 @@ gam_imputedData <- gam_imputedData %>%
                                                    paste(timeUse,":00:00",sep="")), sep=" "), origin="1970-01-01",tz="GMT"),
          month2 = factor(month, levels = c("Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar"),
                          labels = c("Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar")))
-write.csv(gam_imputedData, file=here(filepath,"gam_imputed_data.csv"), row.names=FALSE)
+write.csv(gam_imputedData, file=here(filepath,"gam_imputed_test_data.csv"), row.names=FALSE)
 
 # Calculating RMSE to get performance of na_seadec approach for each SL
 gam_imputedData <- gam_imputedData %>% mutate(PV.power.W = full_data$PV.power.W,
@@ -507,14 +530,11 @@ perf_gam_sub <- gam_sub %>% group_by(streetlight) %>%
 # Remove streetlight columns that are redundant and original data
 perf_gam_sub <- perf_gam_sub[,-c(4,5,8)]
 perf_gam_sub <- gather(perf_gam_sub, id, value, 2:5)
-ggplot(perf_gam_sub[perf_gam_sub$streetlight=="SL1",], aes(id, value)) + 
-  geom_bar(stat="identity", width=.3, position = "dodge") + theme(axis.text.x = element_text(angle=45))
-ggplot(perf_gam_sub[perf_gam_sub$streetlight=="SL2",], aes(id, value)) + 
-  geom_bar(stat="identity", width=.3, position = "dodge") + theme(axis.text.x = element_text(angle=45))
-ggplot(perf_gam_sub[perf_gam_sub$streetlight=="SL3",], aes(id, value)) + 
-  geom_bar(stat="identity", width=.3, position = "dodge") + theme(axis.text.x = element_text(angle=45))
-ggplot(perf_gam_sub[perf_gam_sub$streetlight=="SL4",], aes(id, value)) + 
-  geom_bar(stat="identity", width=.3, position = "dodge") + theme(axis.text.x = element_text(angle=45))
+ggplot(perf_gam_sub, aes(id, value)) + facet_wrap(~streetlight) +
+  geom_bar(stat="identity", width=.3, position = "dodge") + theme(axis.text.x = element_text(angle=30)) + 
+  scale_x_discrete(labels=c("PV.power_GAM", "PV.power_LM", "Battery.power_GAM", "Battery.power_LM")) + 
+  labs(x="Variables", y="RMSE (W)", title="RMSE using LM and GAM models")
+ggsave(here(plot_dir,"rmse_gam.png")) 
 
 # Compute statistics for original and imputed data
 gam_sub <- gather(gam_sub, id, value, c(5:10,14:15))
@@ -523,6 +543,9 @@ stats_gam_sub <- gam_sub %>% group_by(streetlight, id) %>%
             skew = skewness(value, na.rm=TRUE), kurt = kurtosis(value, na.rm=TRUE))
 stats_gam_sub <- as.data.frame(stats_gam_sub)  
 stats_gam_sub <- stats_gam_sub[complete.cases(stats_gam_sub),]
+stats_gam_sub <- stats_gam_sub %>% mutate(mean=round(mean,2), median=round(median,2),
+                                                      sd=round(sd,2), skew=round(skew,2), kurt=round(kurt,2))
+write.table(stats_gam_sub, file = here(filepath,"stats_gam.txt"), sep = ",", quote = FALSE, row.names = F)
 
 # Plot data to check mapping
 ggplot(gam_sub[gam_sub$streetlight=="SL1" & gam_sub$id==unique(gam_sub$id)[c(1,7)],], 
