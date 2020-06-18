@@ -20,9 +20,9 @@ EFFICIENCY = 0.1649
 
 #******************************************************************************************#
 # Set working directory to read and list all stitched files - data up to 30th Nov 2019
-filepath <- "../Data/Full"
+filepath <- "Data/Full"
 file_list <- list.files(here(filepath))
-output_directory <- "../Data"
+output_directory <- "Data"
 
 # Extract System overview Battery Power, PV-DC-coupled, AC consumption; Solar Charger PV current,PV voltage, 
 # Load current, Battery watts; Battery Monitor State of charge; Inverter Output current, Output voltage
@@ -46,9 +46,9 @@ write.csv(sl_rwanda, file=here(output_directory,"sl_all_raw_jun_nov.csv"), row.n
 
 #******************************************************************************************#
 # Set working directory to read all files from 30th Nov 2019 to 30th April 2020
-filepath <- "../Data/Raw_data"
+filepath <- "Data/Raw_data"
 file_list <- list.files(here(filepath))
-output_directory <- "../Data"
+output_directory <- "Data"
 
 sl_rwanda2 <- data.frame()
 for(i in seq_along(file_list)) {
@@ -88,7 +88,7 @@ write.csv(sl_rwanda2, file=here(output_directory,"sl_all_raw_nov_mar.csv"), row.
 
 #******************************************************************************************#
 # Set working directory to read all files from 30th Nov 2019 to 30th April 2020
-filepath <- "../Data"
+filepath <- "Data"
 sl_rwanda <- read.csv(here(filepath,"sl_all_raw_jun_nov.csv"), header = TRUE, stringsAsFactors = FALSE)
 sl_rwanda2 <- read.csv(here(filepath,"sl_all_raw_nov_mar.csv"), header = TRUE, stringsAsFactors = FALSE)
 colnames(sl_rwanda2) <- colnames(sl_rwanda)
@@ -105,9 +105,9 @@ write.csv(sl_all_rwanda, file=here(filepath,"sl_all_raw.csv"), row.names=FALSE)
 
 #******************************************************************************************#
 # Set working directory to read weather data
-filepath <- "../Data/Weather data"
+filepath <- "Data/Weather data"
 file_list <- list.files(here(filepath))
-output_directory <- "../Data"
+output_directory <- "Data"
 
 weather <- data.frame()
 for(i in seq_along(file_list)) {
