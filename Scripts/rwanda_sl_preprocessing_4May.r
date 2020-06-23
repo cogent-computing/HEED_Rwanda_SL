@@ -41,6 +41,8 @@ sl_all <- sl_all %>%
           timeUse = hour(timestamp)) 
 sl_all <- sl_all[,-c(9:10)] # Remove PV current and PV voltage
 sl_all <- distinct(sl_all)
+# Subset data till 31st March 2020
+sl_all <- sl_all[sl_all$date<="2020-03-31",]
 
 weather_data <- read_csv(here(filepath,"weather_hourly_jul_mar.csv"), col_names = TRUE)
 weather_data <- weather_data[,1:5]
@@ -55,35 +57,21 @@ weather_data <- weather_data[weather_data$date>="2019-07-01",] # Select data fro
 #******************************************************************************************#
 # Plot number of values per hour for each day
 sl_all <- gather(sl_all, "id", "value", 3:14)
-sl_qual <- sl_all %>% group_by(streetlight, date, timeUse, id) %>% summarise(count = length(na.omit(value)),
-                                                                  yield=length(na.omit(value))*100.0/60.0)
+sl_qual <- sl_all %>% group_by(streetlight, date, timeUse, id) %>% 
+  summarise(count = length(unique(timestamp)))
 sl_qual <- as.data.frame(sl_qual)
-sl_qual <- sl_qual %>% mutate(count2 = ifelse(count<100, count, 100))
-sl_qual <- sl_qual %>% mutate(yield2 = ifelse(yield<100, yield, 100))
+sl_qual <- sl_qual %>% mutate(count2 = ifelse(count<100, count, 100),
+            yield=ifelse(date>="2019-08-05" & timeUse>=16, count*100/60, count*100/4),
+            yield2=ifelse(yield>100, 100, yield))
 
-# Calculate hourly yield for each day and SL if 60 readings expected every hour
-pal <- wes_palette("Zissou1", 400, type = "continuous")
-ggplot(sl_qual[sl_qual$id=="PV.power.W",], aes(date, timeUse)) + facet_wrap(~streetlight) +
-  geom_tile(aes(fill = count2)) + scale_fill_gradientn(colours = pal, breaks=c(0,25,50,75,100),labels=c("0","25","50","75","100+")) + xlab("X axis") + ylab("Y axis") +
-  labs(title="Number of readings for PV power per hour for Rwanda SL: 1 Jul'19 - 30 Apr'20",
-       y="Time of day",x = "Day of study",fill="Readings/hour") + scale_y_continuous(limits=c(0,23),breaks=0:23) 
-ggsave(here(plot_dir,"numReads_hourly.png"))
-ggplot(sl_qual[sl_qual$id=="PV.power.W",], aes(date, timeUse)) + facet_wrap(~streetlight) +
-  geom_tile(aes(fill = yield2)) + scale_fill_gradientn(colours = pal, breaks=c(0,25,50,75,100),labels=c("0","25","50","75","100+")) + xlab("X axis") + ylab("Y axis") +
-  labs(title="Yield for PV power per hour for Rwanda SL: 1 Jul'19 - 30 Apr'20",
-       y="Time of day",x = "Day of study",fill="Yield/hour") + scale_y_continuous(limits=c(0,23),breaks=0:23) 
-ggsave(here(plot_dir,"yield_hourly.png"))
-
-ggplot(sl_qual[sl_qual$id=="System.overview.AC.Consumption.L1.W",], aes(date, timeUse)) + facet_wrap(~streetlight) +
-  geom_tile(aes(fill = count2)) + scale_fill_gradientn(colours = pal, breaks=c(0,25,50,75,100),labels=c("0","25","50","75","100+")) + xlab("X axis") + ylab("Y axis") +
-  labs(title="Number of readings for AC consumption per hour for Rwanda SL: 1 Jul'19 - 30 Apr'20",
-       y="Time of day",x = "Day of study",fill="Readings/hour") + scale_y_continuous(limits=c(0,23),breaks=0:23) 
-ggsave(here(plot_dir,"numReads_ACLoad_hourly.png"))
-ggplot(sl_qual[sl_qual$id=="PV.power.W",], aes(date, timeUse)) + facet_wrap(~streetlight) +
-  geom_tile(aes(fill = yield2)) + scale_fill_gradientn(colours = pal, breaks=c(0,25,50,75,100),labels=c("0","25","50","75","100+")) + xlab("X axis") + ylab("Y axis") +
-  labs(title="Yield for AC consumption per hour for Rwanda SL: 1 Jul'19 - 30 Apr'20",
-       y="Time of day",x = "Day of study",fill="Yield/hour") + scale_y_continuous(limits=c(0,23),breaks=0:23) 
-ggsave(here(plot_dir,"yield_ACLoad_hourly.png"))
+pal <- wes_palette("Zissou1", 100, type = "continuous")
+ggplot(sl_qual[sl_qual$id=="PV.power.W",], aes(date, timeUse)) +facet_wrap(~streetlight) + 
+  geom_tile(aes(fill = yield2)) + scale_fill_gradientn(colours = pal, 
+  breaks=c(0,25,50,75,100)) + scale_y_continuous(breaks=seq(0,24,by=2)) + 
+  xlab("X axis") + ylab("Y axis") + 
+  labs(title="Yield per hour for Rwanda streetlights: 1 Jul'19 - 31 Mar'20", 
+                y="Time of day",x = "Day of study", fill="Yield (%)")
+ggsave(here(plot_dir,"yield_hourly1.png"))
 #******************************************************************************************#
 
 #******************************************************************************************#
@@ -94,8 +82,8 @@ system_hourly <- as.data.frame(system_hourly)
 system_hourly <- spread(system_hourly, id, value)
 system_hourly[is.na(system_hourly)] <- NA
 
-# For each streetlight see what check for missing data - 1 July 2019 to 30 April 2020 = 305 days
-all_days <- seq(as.Date("2019-07-01"), as.Date("2020-04-30"), by="days")
+# For each streetlight see what check for missing data - 1 Jul'19 to 31 Mar'20 = 275 days
+all_days <- seq(as.Date("2019-07-01"), as.Date("2020-03-31"), by="days")
 all_hours <- format(seq.POSIXt(as.POSIXct(Sys.Date()), as.POSIXct(Sys.Date()+1),by = "1 hour"), "%H", tz="GMT")
 all_hours <- as.numeric(all_hours[-25])
 
@@ -130,6 +118,16 @@ write.csv(system_hourly, file=here(filepath,"raw_hourly_sl_data.csv"), row.names
 #******************************************************************************************#
 
 #******************************************************************************************#
+library(tidyverse)
+library(lubridate)
+library(wesanderson)
+library("imputeTS") # for na_seadec imputation
+library(xts)
+library(here)
+
+filepath <- "Data"
+plot_dir <- "Plots/Paper 7"
+
 # Read hourly data and calculate yield
 system_hourly <- read.csv(here(filepath,"raw_hourly_sl_data.csv"), header = TRUE, stringsAsFactors=FALSE)
 system_hourly <- system_hourly %>% mutate(date = as.Date(date))
@@ -225,7 +223,7 @@ plotTypical <- function(df) {
 }
 
 plotTypical(system_typical) + facet_wrap(~streetlight) +
-  labs(title="Typical day values for Rwanda SL: 01 Jul'19 to 30 Apr'20") 
+  labs(title="Typical day values for Rwanda SL: 01 Jul'19 to 31 Mar'20") 
 ggsave(here(plot_dir,"typical_day_sl_all.png"))
 #******************************************************************************************#
 
@@ -240,6 +238,12 @@ system <- system %>% mutate(month = as.character(month(date, label=TRUE, abbr=TR
 
 # Plot hourly values against time
 subSystem <- system[system$streetlight=="SL1",]
+ggplot(subSystem[(subSystem$id=="PV.power.W" | subSystem$id=="Potential_PV_power_W" |
+                    subSystem$id=="System.overview.Battery.Power.W" |
+                    subSystem$id=="Solar.Charger.Battery.watts.W") & subSystem$month=="Oct",], aes(timestamp, value)) + 
+  facet_wrap(~id) + geom_line() + labs(x="Date", y="Energy (Wh)", 
+       title = "Energy profile of SL1 in Rwanda in Oct 2019")
+
 ggplot(subSystem[(subSystem$id=="PV.power.W" | subSystem$id=="Potential_PV_power_W" | 
                   subSystem$id=="System.overview.Battery.Power.W"),], 
        aes(timestamp, value, color=as.factor(id))) + facet_wrap(~month2, scales = "free") + 
