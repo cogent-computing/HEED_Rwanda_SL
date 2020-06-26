@@ -1,7 +1,7 @@
 #******************************************************************************************#
 # This is the script for imputing missing data for all Rwanda SL                           #
 # Author: K Bhargava                                                                       #
-# Last updated on: 22nd Jun 2020                                                           #
+# Last updated on: 26th Jun 2020                                                           #
 #******************************************************************************************#
 
 #******************************************************************************************#
@@ -358,35 +358,44 @@ na_seadec_correctedData <- na_seadec_correctedData %>%
          month2=factor(month, levels = c("Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar"),
                        labels = c("Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar")))
 
-# Subset data to get SL, Time, Potential PV, SoC, Actual PV power, Actual AC load, Positive actual battery power
-# Negative actual battery power, Actual Light load 
-system_sub_kalman <- na_seadec_correctedData[,c(1,3,22,26,28,32,54,55,57)]
-system_sub_interpolation <- na_seadec_correctedData[,c(1,3,22,27,29,33,52,53,59)]
+# Subset data to get SL, Time, Potential PV, SoC, Actual PV power, Actual AC load, 
+# Positive actual Solar battery power (E_a), Positive and negative actual battery power,
+# Actual light load
+system_sub_kalman <- na_seadec_correctedData[,c(1,3,22,26,28,32,50,54,55,57)]
+system_sub_interpolation <- na_seadec_correctedData[,c(1,3,22,27,29,33,48,52,53,59)]
 
 # Calculate Total load (actual AC + actual light), capture loss (potential-actual PV), SoC=SoC*100/3072 - Kalman
 system_sub_kalman <- system_sub_kalman %>% 
   mutate(load = abs(Actual.AC.consumption.W_kalman) + abs(Actual.Light.laod.W_kalman),
-         loss = Potential.PV.power.W - Actual.PV.power.W_kalman,
+         loss = Potential.PV.power.W - Postive.Actual.Solar.Charger.Battery.Power.W_kalman,
          State.of.Charge.W_kalman=State.of.Charge.W_kalman*100/3072)
-system_sub_kalman <- system_sub_kalman[,-c(6,9)] # Remove socket and light load
-colnames(system_sub_kalman) <- c("streetlight","timeUse","E_p","SoC","E_a","B_cp","B_dp","E_load","L_c")
+system_sub_kalman <- system_sub_kalman[,-c(6,10)] # Remove socket and light load
+colnames(system_sub_kalman) <- c("streetlight","timeUse","E_p","SoC","PV","E_a",
+                                 "B_cp","B_dp","E_load","L_c")
 
 # Calculate Total load (actual AC + actual light), capture loss (potential-actual PV), SoC=SoC*100/3072 - Interpolation
 system_sub_interpolation <- system_sub_interpolation %>% 
   mutate(load = abs(Actual.AC.consumption.W_interpolation) + abs(Actual.Light.laod.W_interpolation),
-         loss = Potential.PV.power.W - Actual.PV.power.W_interpolation,
+         loss = Potential.PV.power.W - Postive.Actual.Solar.Charger.Battery.Power.W_interpolation,
          State.of.Charge.W_interpolation=State.of.Charge.W_interpolation*100/3072)
-system_sub_interpolation <- system_sub_interpolation[,-c(6,9)] # Remove socket and light load
-colnames(system_sub_interpolation) <- c("streetlight","timeUse","E_p","SoC","E_a","B_cp","B_dp","E_load","L_c")
+system_sub_interpolation <- system_sub_interpolation[,-c(6,10)] # Remove socket and light load
+colnames(system_sub_interpolation) <- c("streetlight","timeUse","E_p","SoC","PV","E_a",
+                                        "B_cp","B_dp","E_load","L_c")
+
+# Correct E_a value for SL3 - replace it with Actual PV* 0.94
+system_sub_kalman <- system_sub_kalman %>% 
+  mutate(E_a=ifelse(streetlight=="SL3", PV*0.94, E_a))
+system_sub_interpolation <- system_sub_interpolation %>%
+  mutate(E_a=ifelse(streetlight=="SL3", PV*0.94, E_a))
 
 # Calculate typical values for each SL
-system_sub_kalman <- gather(system_sub_kalman, id, value, 3:9)
+system_sub_kalman <- gather(system_sub_kalman, id, value, 3:10)
 system_typical_kalman <- system_sub_kalman %>% group_by(streetlight, timeUse, id) %>% 
   summarise(value=mean(value, na.rm=TRUE))
 system_typical_kalman <- as.data.frame(system_typical_kalman)
 system_typical_kalman <- spread(system_typical_kalman, id, value)
 
-system_sub_interpolation <- gather(system_sub_interpolation, id, value, 3:9)
+system_sub_interpolation <- gather(system_sub_interpolation, id, value, 3:10)
 system_typical_interpolation <- system_sub_interpolation %>% group_by(streetlight, timeUse, id) %>% 
   summarise(value=mean(value, na.rm=TRUE))
 system_typical_interpolation <- as.data.frame(system_typical_interpolation)
@@ -394,67 +403,85 @@ system_typical_interpolation <- spread(system_typical_interpolation, id, value)
 
 # Plot typical values for each SL
 plotTypical <- function(df) {
-  ggplot(df, aes(x=timeUse)) + geom_line(aes(y=B_cp/1000.0, color="B_cp"),linetype=1) +
-    geom_line(aes(y=abs(B_dp)/1000.0, color="B_dp"),linetype=2) + geom_line(aes(y=E_a/1000.0, color="E_a"),linetype=3) +
-    geom_line(aes(y=E_load/1000.0, color="E_load"),linetype=4) + geom_line(aes(y=E_p/1000.0, color="E_p"),linetype=5) +
-    geom_line(aes(y=L_c/1000.0, color="L_c"),linetype=6) + geom_line(aes(y = SoC/400, color = "SoC", group="SoC"), linetype=7)+ 
-    scale_y_continuous(breaks= seq(0,0.25,0.05), sec.axis = sec_axis(~.*400, name = "SoC (%)")) +
-    labs(y="Energy (kWh)", x = "Time of day", colour="Parameter") +
-    scale_x_continuous(breaks=seq(0,24,by=2)) + theme(plot.title = element_text(size=10), legend.position = "bottom",
-                                                      legend.box = "horizontal",  legend.key.size = unit(0.5, "cm"), legend.margin = margin(t=0,r=0,b=0,l=0))
+  ggplot(df, aes(x=timeUse)) + geom_line(aes(y=B_cp/1000.0, color="B_cp", linetype="B_cp")) +
+    geom_line(aes(y=abs(B_dp)/1000.0, color="B_dp",linetype="B_dp")) + 
+    geom_line(aes(y=E_a/1000.0, color="E_a",linetype="E_a")) +
+    geom_line(aes(y=E_load/1000.0, color="E_load",linetype="E_load")) + 
+    geom_line(aes(y=E_p/1000.0, color="E_p",linetype="E_p")) +
+    geom_line(aes(y=L_c/1000.0, color="L_c",linetype="L_c")) + 
+    geom_line(aes(y=PV/1000.0, color="PV",linetype="PV")) + 
+    geom_line(aes(y = SoC/400, color = "SoC",linetype="SoC")) + 
+    scale_y_continuous(breaks= seq(0,0.25,0.05), sec.axis = sec_axis(~.*400, 
+                                                name = "State of Charge (%)")) +
+    labs(y="Energy (kWh)", x = "Time of day", colour="Parameter", linetype="Parameter") +
+    scale_x_continuous(breaks=seq(0,24,by=2)) + theme(plot.title = element_text(size=10), 
+            legend.position = "bottom",legend.box = "horizontal",
+            legend.key.size = unit(0.6, "cm"), legend.margin = margin(t=0,r=0,b=0,l=0),
+       axis.text = element_text(size=10), axis.title = element_text(size=12))
 }
+
 plotTypical(system_typical_kalman[system_typical_kalman$streetlight=="SL1",]) + 
-  labs(title="Actual Rwanda SL1 power profile for a typical day from July 2019 to Mar 2020")
-plotTypical(system_typical_interpolation[system_typical_interpolation$streetlight=="SL1",]) + 
-  labs(title="Actual Rwanda SL1 power profile for a typical day from July 2019 to Mar 2020")
-ggsave(here(plot_dir,"typical_day_sl1_imputed.png"))
-
+  labs(title="Actual typical day profile for Rwanda SL1 between July 2019 and Mar 2020")
+ggsave(here(plot_dir,"typical_day_sl1_imputed_kalman.png"))
 plotTypical(system_typical_kalman[system_typical_kalman$streetlight=="SL2",]) + 
-  labs(title="Actual Rwanda SL2 power profile for a typical day from July 2019 to Mar 2020")
-plotTypical(system_typical_interpolation[system_typical_interpolation$streetlight=="SL2",]) + 
-  labs(title="Actual Rwanda SL2 power profile for a typical day from July 2019 to Mar 2020")
-ggsave(here(plot_dir,"typical_day_sl2_imputed.png"))
-
+  labs(title="Actual typical day profile for Rwanda SL2 between July 2019 and Mar 2020")
+ggsave(here(plot_dir,"typical_day_sl2_imputed_kalman.png"))
 plotTypical(system_typical_kalman[system_typical_kalman$streetlight=="SL3",]) + 
-  labs(title="Actual Rwanda SL3 power profile for a typical day from July 2019 to Mar 2020")
-plotTypical(system_typical_interpolation[system_typical_interpolation$streetlight=="SL3",]) + 
-  labs(title="Actual Rwanda SL3 power profile for a typical day from July 2019 to Mar 2020")
-ggsave(here(plot_dir,"typical_day_sl3_imputed.png"))
-
+  labs(title="Actual typical day profile for Rwanda SL3 between July 2019 and Mar 2020")
+ggsave(here(plot_dir,"typical_day_sl3_imputed_kalman.png"))
 plotTypical(system_typical_kalman[system_typical_kalman$streetlight=="SL4",]) + 
-  labs(title="Actual Rwanda SL4 power profile for a typical day from July 2019 to Mar 2020")
+  labs(title="Actual typical day profile for Rwanda SL4 between July 2019 and Mar 2020")
+ggsave(here(plot_dir,"typical_day_sl4_imputed_kalman.png"))
+
+plotTypical(system_typical_interpolation[system_typical_interpolation$streetlight=="SL1",]) + 
+  labs(title="Actual typical day profile for Rwanda SL1 between July 2019 and Mar 2020")
+ggsave(here(plot_dir,"typical_day_sl1_imputed_interpolation.png"))
+plotTypical(system_typical_interpolation[system_typical_interpolation$streetlight=="SL2",]) + 
+  labs(title="Actual typical day profile for Rwanda SL2 between July 2019 and Mar 2020")
+ggsave(here(plot_dir,"typical_day_sl2_imputed_interpolation.png"))
+plotTypical(system_typical_interpolation[system_typical_interpolation$streetlight=="SL3",]) + 
+  labs(title="Actual typical day profile for Rwanda SL3 between July 2019 and Mar 2020")
+ggsave(here(plot_dir,"typical_day_sl3_imputed_interpolation.png"))
 plotTypical(system_typical_interpolation[system_typical_interpolation$streetlight=="SL4",]) + 
-  labs(title="Actual Rwanda SL4 power profile for a typical day from July 2019 to Mar 2020")
-ggsave(here(plot_dir,"typical_day_sl4_imputed.png"))
+  labs(title="Actual typical day profile for Rwanda SL4 between July 2019 and Mar 2020")
+ggsave(here(plot_dir,"typical_day_sl4_imputed_interpolation.png"))
 #******************************************************************************************#
 
 #******************************************************************************************#
-# Calculate daily data - PV power (original and imputed), AC load (original and imputed), Potential PV, actual PV power,
-# actual AC load, +ve/-ve solar charger battery watts (original and imputed), +ve/-ve system battery power 
-# (original and imputed), +ve/-ve actual solar charger battery power, +ve/-ve actual battery power, 
-# light demand and actual light load
+# Calculate daily data - PV power (original and imputed), AC load (original and imputed), 
+# Potential PV, actual PV power, actual AC load, 
+# +ve/-ve solar charger battery watts (original and imputed), +ve/-ve system battery power 
+# (original and imputed), +ve/-ve actual solar charger battery power, 
+# +ve/-ve actual battery power, light demand and actual light load
 na_seadec_sub <- na_seadec_correctedData[,c(1:3,7:9,16:18,22:25,28:29,32:33,36:59)]
 # Calculate daily loads
 na_seadec_sub <- gather(na_seadec_sub, id, value, c(4:10,14:41))
-system_daily <- na_seadec_sub %>% group_by(streetlight, month2, date, id) %>% summarise(value=sum(value, na.rm=TRUE))
+system_daily <- na_seadec_sub %>% group_by(streetlight, month2, date, id) %>% 
+  summarise(value=sum(value, na.rm=TRUE))
 system_daily <- as.data.frame(system_daily)
 system_daily <- spread(system_daily, id, value)
 write.csv(system_daily, file=here(filepath,"system_daily_correctedData.csv"), row.names=FALSE)
 #******************************************************************************************#
 
-#******************************************************************************************#
-# Monthly daily avg - remove data between 19th July to 6th Aug
+#*****************************************************************************************#
+# Monthly daily avg - remove AC load from 1st to 19th July as no inverter was installed
+system_daily$Actual.AC.consumption.W_interpolation[system_daily$date<="2019-07-19"] <- NA
+system_daily$Actual.AC.consumption.W_kalman[system_daily$date<="2019-07-19"] <- NA
+system_daily$System.overview.AC.Consumption.L1.W_interpolation[system_daily$date<="2019-07-19"] <- NA
+system_daily$System.overview.AC.Consumption.L1.W_kalman[system_daily$date<="2019-07-19"] <- NA
+system_daily$System.overview.AC.Consumption.L1.W_original[system_daily$date<="2019-07-19"] <- NA
+
 system_daily <- gather(system_daily, id, value, 4:38)
-system_daily <- system_daily[!(system_daily$date>="2019-07-19" & system_daily$date<="2019-08-06"),]
-system_monthly <- system_daily %>% group_by(streetlight, month2, id) %>% summarise(value=mean(value, na.rm=TRUE))
+system_monthly <- system_daily %>% group_by(streetlight, month2, id) %>% 
+  summarise(value=mean(value, na.rm=TRUE))
 system_monthly <- as.data.frame(system_monthly)
 # Converting power from W to Wh
 system_monthly <- system_monthly %>% mutate(value=value/1000.0)
 
 system_monthly <- spread(system_monthly, id, value)
 system_monthly <- system_monthly %>% mutate(month = factor(month2, 
-                                                      levels=c("Jul","Aug","Sep","Oct","Nov","Dec","Jan","Feb","Mar"),
-                                                      labels=c("Jul","Aug","Sep","Oct","Nov","Dec","Jan","Feb","Mar")))
+              levels=c("Jul","Aug","Sep","Oct","Nov","Dec","Jan","Feb","Mar"),
+              labels=c("Jul","Aug","Sep","Oct","Nov","Dec","Jan","Feb","Mar")))
 system_monthly <- system_monthly[order(system_monthly$streetlight, system_monthly$month),]
 system_monthly <- system_monthly[,-2] # remove month2
 system_monthly <- system_monthly[,c(1,37,2:36)]

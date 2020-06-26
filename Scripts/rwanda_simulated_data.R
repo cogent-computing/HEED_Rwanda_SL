@@ -1,7 +1,7 @@
 #******************************************************************************************#
 # This is the script for plotting typical day behaviour using sim data for Nepal & Rwanda  #
 # Author: K Bhargava                                                                       #
-# Last updated on: 16th Jun 2020                                                           #
+# Last updated on: 26th Jun 2020                                                           #
 #******************************************************************************************#
 
 #******************************************************************************************#
@@ -67,27 +67,31 @@ for(i in 1:2) {
   system_sub <- rbind(system_sub, df)
 }
 
+# Subtract 0.0025 from E_load values
+system_sub <- system_sub %>% mutate(E_load = E_load - 0.0025)
+
 # Calculate typical data for each country
 system_sub <- gather(system_sub,id, value, 3:9)
 system_typical <- system_sub %>% group_by(country, timestamp, id) %>% summarise(value=mean(value, na.rm=TRUE))
 system_typical <- as.data.frame(system_typical)
 system_typical <- spread(system_typical, id, value)
 
-# Plot typical values for Nepal
+# Plot typical values for Nepal and Rwanda 
 plotTypical <- function(df) {
-  ggplot(df, aes(x=timestamp)) + geom_line(aes(y=B_cp, color="B_cp"),linetype=1) +
-    geom_line(aes(y=B_dp, color="B_dp"),linetype=2) + geom_line(aes(y=E_a, color="E_a"),linetype=3) +
-    geom_line(aes(y=E_load, color="E_load"),linetype=4) + geom_line(aes(y=E_p, color="E_p"),linetype=5) +
-    geom_line(aes(y=L_c, color="L_c"),linetype=6) + geom_line(aes(y = SoC/400, color = "SoC", group="SoC"), linetype=7)+ 
-    scale_y_continuous(breaks= seq(0,0.25,0.05), sec.axis = sec_axis(~.*400, name = "SoC (%)")) +
-    labs(y="Energy (kWh)", x = "Time of day", colour="Parameter") +
+  ggplot(df, aes(x=timestamp)) + geom_line(aes(y=B_cp, color="B_cp", linetype="B_cp")) +
+    geom_line(aes(y=B_dp, color="B_dp",linetype="B_dp")) + geom_line(aes(y=E_a, color="E_a",linetype="E_a")) +
+    geom_line(aes(y=E_load, color="E_load",linetype="E_load")) + geom_line(aes(y=E_p, color="E_p",linetype="E_p")) +
+    geom_line(aes(y=L_c, color="L_c",linetype="L_c")) + geom_line(aes(y = SoC/400, color = "SoC",linetype="SoC"))+ 
+    scale_y_continuous(breaks= seq(0,0.25,0.05), sec.axis = sec_axis(~.*400, name = "State of Charge (%)")) +
+    labs(y="Energy (kWh)", x = "Time of day", colour="Parameter", linetype="Parameter") +
     scale_x_continuous(breaks=seq(0,24,by=2)) + theme(plot.title = element_text(size=10), legend.position = "bottom",
-          legend.box = "horizontal",  legend.key.size = unit(0.5, "cm"), legend.margin = margin(t=0,r=0,b=0,l=0))
+          legend.box = "horizontal",  legend.key.size = unit(0.6, "cm"), legend.margin = margin(t=0,r=0,b=0,l=0),
+          axis.text = element_text(size=10), axis.title = element_text(size=12))
 }
 plotTypical(system_typical[system_typical$country=="Nepal",]) + 
-  labs(title="Simulated Nepal SL power profile for a typical day from July 2019 to Mar 2020")
-ggsave(here(plot_dir,"typical_day_nepal_sl.png"))
+  labs(title="Simulated typical day profile for Nepal SL between July 2019 and Mar 2020")
+ggsave(here(plot_dir,"typical_day_nepal_sl_sim.png"))
 plotTypical(system_typical[system_typical$country=="Rwanda",]) + 
-  labs(title="Simulated Rwanda SL power profile for a typical day from July 2019 to Mar 2020")
-ggsave(here(plot_dir,"typical_day_rwanda_sl.png"))
+  labs(title="Simulated typical day profile for Rwanda SL between July 2019 and Mar 2020")
+ggsave(here(plot_dir,"typical_day_rwanda_sl_sim.png"))
 #******************************************************************************************#
