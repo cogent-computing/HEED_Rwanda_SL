@@ -2,7 +2,7 @@
 # This is the script for pre-processing data from all Rwanda SL to convert to hourly data  #
 # analyse yield of hourly data and explore imputation techniques                           #
 # Author: K Bhargava                                                                       #
-# Last updated on: 27th May 2020                                                           #
+# Last updated on: 27th June 2020                                                          #
 #******************************************************************************************#
 
 #******************************************************************************************#
@@ -56,26 +56,29 @@ weather_data <- weather_data[weather_data$date>="2019-07-01",] # Select data fro
 
 #******************************************************************************************#
 # Plot number of values per hour for each day
-sl_all <- gather(sl_all, "id", "value", 3:14)
-sl_qual <- sl_all %>% group_by(streetlight, date, timeUse, id) %>% 
+sl_qual <- sl_all[,c(1,2,15,17,7,9,10,12)]
+colnames(sl_qual) <- c(colnames(sl_qual)[1:4],"Solar battery power", "AC load", "Battery power",
+                       "PV power")
+sl_qual <- gather(sl_qual, "id", "value", 5:8)
+sl_qual <- sl_qual %>% group_by(streetlight, date, timeUse, id) %>% 
   summarise(count = length(unique(timestamp)))
 sl_qual <- as.data.frame(sl_qual)
 sl_qual <- sl_qual %>% mutate(count2 = ifelse(count<100, count, 100),
-            yield=ifelse(date>="2019-08-05" & timeUse>=16, count*100/60, count*100/4),
-            yield2=ifelse(yield>100, 100, yield))
-
+                              yield=ifelse(date>="2019-08-05" & timeUse>=16, count*100/60, count*100/4),
+                              yield2=ifelse(yield>100, 100, yield))
 pal <- wes_palette("Zissou1", 100, type = "continuous")
-ggplot(sl_qual[sl_qual$id=="PV.power.W",], aes(date, timeUse)) +facet_wrap(~streetlight) + 
+ggplot(sl_qual[sl_qual$id=="PV power",], aes(date, timeUse)) +facet_wrap(~streetlight) + 
   geom_tile(aes(fill = yield2)) + scale_fill_gradientn(colours = pal, 
-  breaks=c(0,25,50,75,100)) + scale_y_continuous(breaks=seq(0,24,by=2)) + 
+                                                       breaks=c(0,25,50,75,100)) + scale_y_continuous(breaks=seq(0,24,by=2)) + 
   xlab("X axis") + ylab("Y axis") + 
   labs(title="Yield per hour for Rwanda streetlights: 1 Jul'19 - 31 Mar'20", 
-                y="Time of day",x = "Day of study", fill="Yield (%)")
+       y="Time of day",x = "Day of study", fill="Yield (%)")
 ggsave(here(plot_dir,"yield_hourly1.png"))
 #******************************************************************************************#
 
 #******************************************************************************************#
 # Convert data into hourly mean, fill in NA for all days missing, add Potential PV data and save
+sl_all <- gather(sl_all, "id", "value", 3:14)
 system_hourly <- sl_all %>% group_by(streetlight, date, timeUse, id) %>%
   summarise(value = mean(value, na.rm = TRUE))
 system_hourly <- as.data.frame(system_hourly)

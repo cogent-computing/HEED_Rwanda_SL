@@ -358,6 +358,24 @@ na_seadec_correctedData <- na_seadec_correctedData %>%
          month2=factor(month, levels = c("Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar"),
                        labels = c("Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar")))
 
+# Get full data days from original data - all variables needed
+system_sub_original <- na_seadec_correctedData[,c(1,2,3,9,18,12,21,25)]
+system_sub_original <- system_sub_original[complete.cases(system_sub_original),]
+onHours <- system_sub_original %>% group_by(streetlight, month2, date) %>% 
+  summarise(hours=length(PV.power.W_original))
+onHours <- as.data.frame(onHours[onHours$hours==24,])
+full_days <- onHours %>% group_by(streetlight, month2) %>% summarise(days=length(date)) 
+write.csv(full_days, file=here(filepath,"full_days_all_data.csv"), row.names=FALSE)
+
+# Get full data days from original data - all variables needed except AC load
+system_sub_original <- na_seadec_correctedData[,c(1,2,3,9,12,21,25)]
+system_sub_original <- system_sub_original[complete.cases(system_sub_original),]
+onHours <- system_sub_original %>% group_by(streetlight, month2, date) %>% 
+  summarise(hours=length(PV.power.W_original))
+onHours <- as.data.frame(onHours[onHours$hours==24,])
+full_days <- onHours %>% group_by(streetlight, month2) %>% summarise(days=length(date)) 
+write.csv(full_days, file=here(filepath,"full_days_all_except_AC.csv"), row.names=FALSE)
+
 # Subset data to get SL, Time, Potential PV, SoC, Actual PV power, Actual AC load, 
 # Positive actual Solar battery power (E_a), Positive and negative actual battery power,
 # Actual light load
@@ -409,7 +427,6 @@ plotTypical <- function(df) {
     geom_line(aes(y=E_load/1000.0, color="E_load",linetype="E_load")) + 
     geom_line(aes(y=E_p/1000.0, color="E_p",linetype="E_p")) +
     geom_line(aes(y=L_c/1000.0, color="L_c",linetype="L_c")) + 
-    geom_line(aes(y=PV/1000.0, color="PV",linetype="PV")) + 
     geom_line(aes(y = SoC/400, color = "SoC",linetype="SoC")) + 
     scale_y_continuous(breaks= seq(0,0.25,0.05), sec.axis = sec_axis(~.*400, 
                                                 name = "State of Charge (%)")) +
