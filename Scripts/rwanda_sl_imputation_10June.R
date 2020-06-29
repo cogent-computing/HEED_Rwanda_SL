@@ -365,7 +365,7 @@ onHours <- system_sub_original %>% group_by(streetlight, month2, date) %>%
   summarise(hours=length(PV.power.W_original))
 onHours <- as.data.frame(onHours[onHours$hours==24,])
 full_days <- onHours %>% group_by(streetlight, month2) %>% summarise(days=length(date)) 
-write.csv(full_days, file=here(filepath,"full_days_all_data.csv"), row.names=FALSE)
+write.csv(full_days, file=here(filepath,"full_days_all_data_rwanda.csv"), row.names=FALSE)
 
 # Get full data days from original data - all variables needed except AC load
 system_sub_original <- na_seadec_correctedData[,c(1,2,3,9,12,21,25)]
@@ -374,7 +374,7 @@ onHours <- system_sub_original %>% group_by(streetlight, month2, date) %>%
   summarise(hours=length(PV.power.W_original))
 onHours <- as.data.frame(onHours[onHours$hours==24,])
 full_days <- onHours %>% group_by(streetlight, month2) %>% summarise(days=length(date)) 
-write.csv(full_days, file=here(filepath,"full_days_all_except_AC.csv"), row.names=FALSE)
+write.csv(full_days, file=here(filepath,"full_days_all_except_AC_rwanda.csv"), row.names=FALSE)
 
 # Subset data to get SL, Time, Potential PV, SoC, Actual PV power, Actual AC load, 
 # Positive actual Solar battery power (E_a), Positive and negative actual battery power,
