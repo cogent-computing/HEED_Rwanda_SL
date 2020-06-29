@@ -476,31 +476,47 @@ na_seadec_sub <- gather(na_seadec_sub, id, value, c(4:10,14:41))
 system_daily <- na_seadec_sub %>% group_by(streetlight, month2, date, id) %>% 
   summarise(value=sum(value, na.rm=TRUE))
 system_daily <- as.data.frame(system_daily)
+
+# Calculate daily value of SoC -  take mean for the day
+na_seadec_sub <- na_seadec_correctedData[,c(1:3,25,26:27)]
+# Calculate daily loads
+na_seadec_sub <- gather(na_seadec_sub, id, value, c(5:6))
+system_daily_soc <- na_seadec_sub %>% group_by(streetlight, month2, date, id) %>% 
+  summarise(value=mean(value, na.rm=TRUE))
+system_daily_soc <- as.data.frame(system_daily_soc)
+
+# Bind data sets
+system_daily <- rbind(system_daily, system_daily_soc)
+
 system_daily <- spread(system_daily, id, value)
 write.csv(system_daily, file=here(filepath,"system_daily_correctedData.csv"), row.names=FALSE)
 #******************************************************************************************#
 
 #*****************************************************************************************#
 # Monthly daily avg - remove AC load from 1st to 19th July as no inverter was installed
+system_daily <- read.csv(here(filepath,"system_daily_correctedData.csv"), header=TRUE, 
+                         stringsAsFactors=FALSE)
+system_daily <- system_daily %>% 
+  mutate(date=as.Date(date), 
+         month2=factor(month2, levels = c("Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar"),
+              labels = c("Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar")))
 system_daily$Actual.AC.consumption.W_interpolation[system_daily$date<="2019-07-19"] <- NA
 system_daily$Actual.AC.consumption.W_kalman[system_daily$date<="2019-07-19"] <- NA
 system_daily$System.overview.AC.Consumption.L1.W_interpolation[system_daily$date<="2019-07-19"] <- NA
 system_daily$System.overview.AC.Consumption.L1.W_kalman[system_daily$date<="2019-07-19"] <- NA
 system_daily$System.overview.AC.Consumption.L1.W_original[system_daily$date<="2019-07-19"] <- NA
 
-system_daily <- gather(system_daily, id, value, 4:38)
+system_daily <- gather(system_daily, id, value, 4:40)
 system_monthly <- system_daily %>% group_by(streetlight, month2, id) %>% 
   summarise(value=mean(value, na.rm=TRUE))
 system_monthly <- as.data.frame(system_monthly)
 # Converting power from W to Wh
-system_monthly <- system_monthly %>% mutate(value=value/1000.0)
-
+system_monthly <- system_monthly %>% 
+  mutate(value=ifelse(id=="State.of.Charge.W_interpolation" |
+                        id=="State.of.Charge.W_kalman", value*100/3072, value/1000.0))
+# Consider absolute values for all variables
+system_monthly <- system_monthly %>% mutate(value=abs(value))
 system_monthly <- spread(system_monthly, id, value)
-system_monthly <- system_monthly %>% mutate(month = factor(month2, 
-              levels=c("Jul","Aug","Sep","Oct","Nov","Dec","Jan","Feb","Mar"),
-              labels=c("Jul","Aug","Sep","Oct","Nov","Dec","Jan","Feb","Mar")))
-system_monthly <- system_monthly[order(system_monthly$streetlight, system_monthly$month),]
-system_monthly <- system_monthly[,-2] # remove month2
-system_monthly <- system_monthly[,c(1,37,2:36)]
+system_monthly <- system_monthly[order(system_monthly$streetlight, system_monthly$month2),]
 write.csv(system_monthly, file=here(filepath,"monthly_avg_correctedData.csv"), row.names=FALSE)
 #******************************************************************************************#
