@@ -25,6 +25,10 @@ na_seadec_correctedData <- na_seadec_correctedData %>%
   mutate(date=as.Date(date),timestamp=as.POSIXct(timestamp, tz="GMT", origin="1970-01-01"),
          month2=factor(month, levels = c("Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar"),
                        labels = c("Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar")))
+energy_excess <- read.csv(here(filepath,"Excess elc at sockets Rwanda 2.csv"), header=TRUE, stringsAsFactors=FALSE) 
+energy_excess <- energy_excess %>% 
+  mutate(Time=as.POSIXct(Time, tz="GMT", origin="1970-01-01", format="%d/%m/%Y %H:%M"),
+         timeUse = hour(Time))
 #******************************************************************************************#
 
 #******************************************************************************************#
@@ -139,7 +143,8 @@ ggsave(here(plot_dir,"typical_day_sl4_imputed_interpolation.png"))
 #*****************************************************************************************#
 # Box plots for Socket consumption
 plotACLoad <- function(df) {
-  ggplot(df[df$date>"2019-07-19",], aes(as.factor(timeUse), Actual.AC.consumption.W_interpolation/1000.0)) + 
+  ggplot(df[df$date>"2019-07-19",], aes(as.factor(timeUse), 
+                                        Actual.AC.consumption.W_interpolation/1000.0)) + 
     geom_boxplot() + labs(x="Time of day", y="Socket consumption (kWh)") +
     theme(plot.title = element_text(size=10))
 }
@@ -155,6 +160,32 @@ ggsave(here(plot_dir,"acLoad_sl3_rwanda.png"))
 plotACLoad(na_seadec_correctedData[na_seadec_correctedData$streetlight=="SL4",]) + 
   labs(title="Hourly socket consumption at Rwanda SL4 between July 2019 and Mar 2020")
 ggsave(here(plot_dir,"acLoad_sl4_rwanda.png"))
+
+# Plot across all SL
+plotACLoad(na_seadec_correctedData) + 
+  labs(title="Hourly socket consumption at all Rwanda SL between July 2019 and Mar 2020")
+ggsave(here(plot_dir,"acLoad_sl_all_rwanda.png"))
+
+# Create an avg SL for each date and hour
+avgSL <- na_seadec_correctedData %>% group_by(date, timeUse) %>%
+  summarise(Actual.AC.consumption.W_interpolation=mean(Actual.AC.consumption.W_interpolation))
+avgSL <- as.data.frame(avgSL)
+plotACLoad(avgSL) + theme(plot.title = element_text(size=9)) +
+  labs(title="Hourly socket consumption at average Rwanda SL between July 2019 and Mar 2020")
+ggsave(here(plot_dir,"acLoad_avg_sl_rwanda.png"))
+
+# Avg socket load value across all SL against timeUse for all months
+avgLoad <- na_seadec_correctedData %>% group_by(timeUse) %>% 
+  summarise(Socket.load.kW = mean(Actual.AC.consumption.W_interpolation)/1000.0)
+write.csv(avgLoad, file=here(filepath,"avg_hourly_socketLoad_rwanda.csv"), row.names=FALSE)
+
+# PLot energy excess data
+ggplot(energy_excess, aes(as.factor(timeUse), Excess.Electricity.at.Sockets.kW)) +
+  geom_boxplot() + labs(x="Time of day", y="Excess electricity (kW)",
+                        title="Excess electricity at Rwanda streetlight sockets between July 2019 and Mar 2020") +
+  theme(plot.title = element_text(size=9))  + 
+  scale_y_continuous(breaks=seq(0,0.25,0.05), limits=c(0,0.25))
+ggsave(here(plot_dir,"excess_energy_rwanda_sl.png"))
 #*****************************************************************************************#
 
 #******************************************************************************************#
