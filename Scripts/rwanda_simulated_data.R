@@ -1,7 +1,7 @@
 #******************************************************************************************#
 # This is the script for plotting typical day behaviour using sim data for Nepal & Rwanda  #
 # Author: K Bhargava                                                                       #
-# Last updated on: 26th Jun 2020                                                           #
+# Last updated on: 6th Jul 2020                                                           #
 #******************************************************************************************#
 
 #******************************************************************************************#
@@ -11,6 +11,17 @@ library(lubridate)
 library(wesanderson)
 library(here)
 #******************************************************************************************#
+
+#******************************************************************************************#
+# Define macros - theme for all plots
+THEME <- theme(plot.title = element_text(size=12), legend.position = "bottom",
+               legend.key.size = unit(0.5, "cm"), 
+               legend.margin = margin(t=0,r=0,b=0,l=0), panel.grid.major.y = element_line(colour="grey") , 
+               panel.grid.minor = element_blank(), panel.background = element_blank(), 
+               axis.line = element_line(colour = "black"), axis.text = element_text(size=12), 
+               axis.title = element_text(size=12)) 
+#******************************************************************************************#
+
 
 #******************************************************************************************#
 # Defining macros
@@ -83,15 +94,13 @@ plotTypical <- function(df) {
     geom_line(aes(y=E_load, color="E_load",linetype="E_load")) + geom_line(aes(y=E_p, color="E_p",linetype="E_p")) +
     geom_line(aes(y=L_c, color="L_c",linetype="L_c")) + geom_line(aes(y = SoC/400, color = "SoC",linetype="SoC"))+ 
     scale_y_continuous(breaks= seq(0,0.25,0.05), sec.axis = sec_axis(~.*400, name = "State of Charge (%)")) +
-    labs(y="Energy (kWh)", x = "Time of day", colour="Parameter", linetype="Parameter") +
-    scale_x_continuous(breaks=seq(0,24,by=2)) + theme(plot.title = element_text(size=10), legend.position = "bottom",
-          legend.box = "horizontal",  legend.key.size = unit(0.6, "cm"), legend.margin = margin(t=0,r=0,b=0,l=0),
-          axis.text = element_text(size=10), axis.title = element_text(size=12))
+    labs(y="Power (kW)", x = "Time of day", colour="Parameter", linetype="Parameter") +
+    scale_x_continuous(breaks=seq(0,24,by=2)) + THEME
 }
-plotTypical(system_typical[system_typical$country=="Nepal",]) + 
-  labs(title="Simulated typical day profile for Nepal SL between July 2019 and Mar 2020")
+# labs(title="Simulated typical day profile for Nepal SL between Jul 2019 and Mar 2020")
+plotTypical(system_typical[system_typical$country=="Nepal",]) 
 ggsave(here(plot_dir,"typical_day_nepal_sl_sim.png"))
-plotTypical(system_typical[system_typical$country=="Rwanda",]) + 
-  labs(title="Simulated typical day profile for Rwanda SL between July 2019 and Mar 2020")
+# labs(title="Simulated typical day profile for Rwanda SL between Jul 2019 and Mar 2020")
+plotTypical(system_typical[system_typical$country=="Rwanda",]) 
 ggsave(here(plot_dir,"typical_day_rwanda_sl_sim.png"))
 #******************************************************************************************#

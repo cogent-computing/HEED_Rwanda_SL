@@ -27,7 +27,7 @@ library(here)
 # Define macros - theme for all plots
 THEME <- theme(plot.title = element_text(size=12), legend.position = "bottom",
                legend.key.size = unit(0.5, "cm"), 
-               legend.margin = margin(t=0,r=0,b=0,l=0), panel.grid.major = element_blank(), 
+               legend.margin = margin(t=0,r=0,b=0,l=0), panel.grid.major.y = element_line(colour="grey") , 
                panel.grid.minor = element_blank(), panel.background = element_blank(), 
                axis.line = element_line(colour = "black"), axis.text = element_text(size=12), 
                axis.title = element_text(size=12)) 
@@ -77,11 +77,11 @@ sl_qual <- sl_qual %>% mutate(count2 = ifelse(count<100, count, 100),
                               yield=ifelse(date>="2019-08-05" & timeUse>=16, count*100/60, count*100/4),
                               yield2=ifelse(yield>100, 100, yield))
 pal <- wes_palette("Zissou1", 100, type = "continuous")
+# title="Yield per hour for Rwanda streetlights: 1 Jul 2019 - 31 Mar 2020"
 ggplot(sl_qual[sl_qual$id=="Battery power",], aes(date, timeUse)) + facet_wrap(~streetlight, nrow=2) + geom_tile(aes(fill = yield2)) + 
   scale_fill_gradientn(colours = pal, breaks=c(0,25,50,75,100)) + 
   scale_y_continuous(breaks=seq(0,24,by=4)) + xlab("X axis") + ylab("Y axis") + 
-  labs(y="Time of day", x = "Day of study", fill="Yield (%)",
-       title="Yield per hour for Rwanda streetlights: 1 Jul 2019 - 31 Mar 2020") + THEME + 
+  labs(y="Time of day", x = "Day of study", fill="Yield (%)") + THEME + 
   guides(fill = guide_colorbar(barwidth = 15, barheight = 0.5))
 ggsave(here(plot_dir,"yield_hourly_all.png"))
 #******************************************************************************************#
