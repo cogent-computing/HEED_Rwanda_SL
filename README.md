@@ -5,3 +5,6 @@
 # rwanda_sl_imputation_10June.R - to impute missing data and correct anomalies using a rule based approach
 # rwanda_simulated_data.R - to analyse and plot simulated typical day plots for Nepal and Rwanda
 # rwanda_analysis_2Jul.R - to analyse and plot corrected data
+
+#Raw data for the paper is shared on data portal.
+#Raw data: sl_all_raw.csv is split for each SL.

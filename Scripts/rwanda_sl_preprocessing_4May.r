@@ -20,17 +20,20 @@ library(randomForest) #For random Forest functions used in the back end by imput
 library(missForest)
 library(xts)
 library(MLmetrics)
+library(extrafont)
 library(here)
 #******************************************************************************************#
 
 #******************************************************************************************#
 # Define macros - theme for all plots
-THEME <- theme(plot.title = element_text(size=12), legend.position = "bottom",
-               legend.key.size = unit(0.5, "cm"), 
-               legend.margin = margin(t=0,r=0,b=0,l=0), panel.grid.major.y = element_line(colour="grey") , 
+font_import()
+THEME <- theme(legend.position = "bottom", legend.text=element_text(size=10, family="Times New Roman"),
+               legend.key.size = unit(0.5, "cm"),legend.margin = margin(t=0,r=0,b=0,l=0), 
+               panel.grid.major.y = element_line(colour="grey"), 
                panel.grid.minor = element_blank(), panel.background = element_blank(), 
-               axis.line = element_line(colour = "black"), axis.text = element_text(size=12), 
-               axis.title = element_text(size=12)) 
+               axis.line = element_line(colour = "black"), 
+               axis.text = element_text(size=9, family="Times New Roman"),
+               axis.title = element_text(size=10, family="Times New Roman")) 
 #******************************************************************************************#
 
 #******************************************************************************************#
@@ -82,8 +85,8 @@ ggplot(sl_qual[sl_qual$id=="Battery power",], aes(date, timeUse)) + facet_wrap(~
   scale_fill_gradientn(colours = pal, breaks=c(0,25,50,75,100)) + 
   scale_y_continuous(breaks=seq(0,24,by=4)) + xlab("X axis") + ylab("Y axis") + 
   labs(y="Time of day", x = "Day of study", fill="Yield (%)") + THEME + 
-  guides(fill = guide_colorbar(barwidth = 15, barheight = 0.5))
-ggsave(here(plot_dir,"yield_hourly_all.png"))
+  guides(fill = guide_colorbar(barwidth = 8, barheight = 0.5))
+ggsave(here(plot_dir,"yield_hourly_all.pdf"), width = 8, height=8, units = "cm")
 #******************************************************************************************#
 
 #******************************************************************************************#
