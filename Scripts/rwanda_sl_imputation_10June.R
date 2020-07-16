@@ -1,5 +1,6 @@
 #******************************************************************************************#
-# This is the script for imputing missing data for all Rwanda SL                           #
+# This is the script for imputing missing data for all Rwanda using na_seadec approa       #
+# and applying corrections using rule based approach                                       #
 # Author: K Bhargava                                                                       #
 # Last updated on: 26th Jun 2020                                                           #
 #******************************************************************************************#
@@ -72,7 +73,7 @@ na_seadec_imputedData <- na_seadec_imputedData %>%
                                                    paste(timeUse,":00:00",sep="")), sep=" "), origin="1970-01-01",tz="GMT"),
          month2 = factor(month, levels = c("Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar"),
                          labels = c("Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar")))
-write.csv(na_seadec_imputedData, file=here(filepath,"na_seadec_imputed_data.csv"), row.names=FALSE)
+#write.csv(na_seadec_imputedData, file=here(filepath,"na_seadec_imputed_data.csv"), row.names=FALSE)
 #******************************************************************************************#
 
 #******************************************************************************************#
@@ -118,110 +119,6 @@ na_seadec_imputedData <- na_seadec_imputedData %>% mutate(date = as.Date(date),
                         month2=factor(month, levels = c("Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar"),
                                       labels = c("Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar")),
                                       timestamp=as.POSIXct(timestamp, origin="1970-01-01",tz="GMT"))
-
-# Plot original and imputed values for AC consumption, load current and PV power
-# Plot AC consumption
-ggplot(na_seadec_imputedData[na_seadec_imputedData$streetlight=="SL1",], 
-       aes(timestamp, System.overview.AC.Consumption.L1.W_original)) + facet_wrap(~month2,scales = "free") + geom_line()
-ggplot(na_seadec_imputedData[na_seadec_imputedData$streetlight=="SL1",], 
-       aes(timestamp, System.overview.AC.Consumption.L1.W_kalman)) + facet_wrap(~month2,scales = "free") + geom_line()
-ggplot(na_seadec_imputedData[na_seadec_imputedData$streetlight=="SL1",], 
-       aes(timestamp, System.overview.AC.Consumption.L1.W_interpolation)) + facet_wrap(~month2,scales = "free") + geom_line()
-
-ggplot(na_seadec_imputedData[na_seadec_imputedData$streetlight=="SL2",], 
-       aes(timestamp, System.overview.AC.Consumption.L1.W_original)) + facet_wrap(~month2,scales = "free") + geom_line()
-ggplot(na_seadec_imputedData[na_seadec_imputedData$streetlight=="SL2",], 
-       aes(timestamp, System.overview.AC.Consumption.L1.W_kalman)) + facet_wrap(~month2,scales = "free") + geom_line()
-ggplot(na_seadec_imputedData[na_seadec_imputedData$streetlight=="SL2",], 
-       aes(timestamp, System.overview.AC.Consumption.L1.W_interpolation)) + facet_wrap(~month2,scales = "free") + geom_line()
-
-ggplot(na_seadec_imputedData[na_seadec_imputedData$streetlight=="SL3",], 
-       aes(timestamp, System.overview.AC.Consumption.L1.W_original)) + facet_wrap(~month2,scales = "free") + geom_line()
-ggplot(na_seadec_imputedData[na_seadec_imputedData$streetlight=="SL3",], 
-       aes(timestamp, System.overview.AC.Consumption.L1.W_kalman)) + facet_wrap(~month2,scales = "free") + geom_line()
-ggplot(na_seadec_imputedData[na_seadec_imputedData$streetlight=="SL3",], 
-       aes(timestamp, System.overview.AC.Consumption.L1.W_interpolation)) + facet_wrap(~month2,scales = "free") + geom_line()
-
-ggplot(na_seadec_imputedData[na_seadec_imputedData$streetlight=="SL4",], 
-       aes(timestamp, System.overview.AC.Consumption.L1.W_original)) + facet_wrap(~month2,scales = "free") + geom_line()
-ggplot(na_seadec_imputedData[na_seadec_imputedData$streetlight=="SL4",], 
-       aes(timestamp, System.overview.AC.Consumption.L1.W_kalman)) + facet_wrap(~month2,scales = "free") + geom_line()
-ggplot(na_seadec_imputedData[na_seadec_imputedData$streetlight=="SL4",], 
-       aes(timestamp, System.overview.AC.Consumption.L1.W_interpolation)) + facet_wrap(~month2,scales = "free") + geom_line()
-length(which(na_seadec_imputedData$System.overview.AC.Consumption.L1.W_orignal<0)) * 100 / 26400
-length(which(na_seadec_imputedData$System.overview.AC.Consumption.L1.W_kalman<0)) * 100 / 26400
-length(which(na_seadec_imputedData$System.overview.AC.Consumption.L1.W_interpolation<0)) * 100 / 26400
-a <- na_seadec_imputedData$System.overview.AC.Consumption.L1.W_kalman[na_seadec_imputedData$System.overview.AC.Consumption.L1.W_Kalman<0]
-a <- round(a, digits=0)
-length(which(a!=0)) * 100 / 26400 
-
-# Plot Load current
-ggplot(na_seadec_imputedData[na_seadec_imputedData$streetlight=="SL1",], 
-       aes(timestamp, Solar.Charger.Load.current.A_original)) + facet_wrap(~month2,scales = "free") + geom_line()
-ggplot(na_seadec_imputedData[na_seadec_imputedData$streetlight=="SL1",], 
-       aes(timestamp, Solar.Charger.Load.current.A_kalman)) + facet_wrap(~month2,scales = "free") + geom_line()
-
-ggplot(na_seadec_imputedData[na_seadec_imputedData$streetlight=="SL2",], 
-       aes(timestamp, Solar.Charger.Load.current.A_original)) + facet_wrap(~month2,scales = "free") + geom_line()
-ggplot(na_seadec_imputedData[na_seadec_imputedData$streetlight=="SL2",], 
-       aes(timestamp, Solar.Charger.Load.current.A_kalman)) + facet_wrap(~month2,scales = "free") + geom_line()
-
-ggplot(na_seadec_imputedData[na_seadec_imputedData$streetlight=="SL3",], 
-       aes(timestamp, Solar.Charger.Load.current.A_original)) + facet_wrap(~month2,scales = "free") + geom_line()
-ggplot(na_seadec_imputedData[na_seadec_imputedData$streetlight=="SL3",], 
-       aes(timestamp, Solar.Charger.Load.current.A_kalman)) + facet_wrap(~month2,scales = "free") + geom_line()
-
-ggplot(na_seadec_imputedData[na_seadec_imputedData$streetlight=="SL4",], 
-       aes(timestamp, Solar.Charger.Load.current.A_original)) + facet_wrap(~month2,scales = "free") + geom_line()
-ggplot(na_seadec_imputedData[na_seadec_imputedData$streetlight=="SL4",], 
-       aes(timestamp, Solar.Charger.Load.current.A_kalman)) + facet_wrap(~month2,scales = "free") + geom_line()
-length(which(na_seadec_imputedData$Solar.Charger.Load.current.A_origin<0)) * 100 / 26400
-length(which(na_seadec_imputedData$Solar.Charger.Load.current.A_kalman<0)) * 100 / 26400
-a <- na_seadec_imputedData$Solar.Charger.Load.current.A_Kalman[na_seadec_imputedData$Solar.Charger.Load.current.A_Kalman<0]
-a <- round(a, digits=0)
-length(which(a!=0)) * 100 / 26400 
-
-# Plot PV power
-ggplot(na_seadec_imputedData[na_seadec_imputedData$streetlight=="SL1",], 
-       aes(timestamp, PV.power.W_original)) + facet_wrap(~month2,scales = "free") + geom_line()
-ggplot(na_seadec_imputedData[na_seadec_imputedData$streetlight=="SL1",], 
-       aes(x=timestamp)) + facet_wrap(~month2,scales = "free") + 
-  geom_line(aes(y=PV.power.W_kalman)) + geom_line(aes(y=Potential.PV.power.W),color="red")
-ggplot(na_seadec_imputedData[na_seadec_imputedData$streetlight=="SL1",], 
-       aes(x=timestamp)) + facet_wrap(~month2,scales = "free") + 
-  geom_line(aes(y=PV.power.W_interpolation)) + geom_line(aes(y=Potential.PV.power.W),color="red")
-
-ggplot(na_seadec_imputedData[na_seadec_imputedData$streetlight=="SL2",], 
-       aes(timestamp, PV.power.W_original)) + facet_wrap(~month2,scales = "free") + geom_line()
-ggplot(na_seadec_imputedData[na_seadec_imputedData$streetlight=="SL2",], 
-       aes(x=timestamp)) + facet_wrap(~month2,scales = "free") + 
-  geom_line(aes(y=PV.power.W_kalman)) + geom_line(aes(y=Potential.PV.power.W),color="red")
-ggplot(na_seadec_imputedData[na_seadec_imputedData$streetlight=="SL2",], 
-       aes(x=timestamp)) + facet_wrap(~month2,scales = "free") + 
-  geom_line(aes(y=PV.power.W_interpolation)) + geom_line(aes(y=Potential.PV.power.W),color="red")
-
-ggplot(na_seadec_imputedData[na_seadec_imputedData$streetlight=="SL3",], 
-       aes(timestamp, PV.power.W_original)) + facet_wrap(~month2,scales = "free") + geom_line()
-ggplot(na_seadec_imputedData[na_seadec_imputedData$streetlight=="SL3",], 
-       aes(x=timestamp)) + facet_wrap(~month2,scales = "free") + 
-  geom_line(aes(y=PV.power.W_kalman)) + geom_line(aes(y=Potential.PV.power.W),color="red")
-ggplot(na_seadec_imputedData[na_seadec_imputedData$streetlight=="SL3",], 
-       aes(x=timestamp)) + facet_wrap(~month2,scales = "free") + 
-  geom_line(aes(y=PV.power.W_interpolation)) + geom_line(aes(y=Potential.PV.power.W),color="red")
-
-ggplot(na_seadec_imputedData[na_seadec_imputedData$streetlight=="SL4",], 
-       aes(timestamp, PV.power.W_original)) + facet_wrap(~month2,scales = "free") + geom_line()
-ggplot(na_seadec_imputedData[na_seadec_imputedData$streetlight=="SL4",], 
-       aes(x=timestamp)) + facet_wrap(~month2,scales = "free") + 
-  geom_line(aes(y=PV.power.W_kalman)) + geom_line(aes(y=Potential.PV.power.W),color="red")
-ggplot(na_seadec_imputedData[na_seadec_imputedData$streetlight=="SL4",], 
-       aes(x=timestamp)) + facet_wrap(~month2,scales = "free") + 
-  geom_line(aes(y=PV.power.W_interpolation)) + geom_line(aes(y=Potential.PV.power.W),color="red")
-length(which(na_seadec_imputedData$PV.power.W_original<0)) * 100 / 26400
-length(which(na_seadec_imputedData$PV.power.W_Kalman<0)) * 100 / 26400
-a <- na_seadec_imputedData$PV.power.W_Kalman[na_seadec_imputedData$PV.power.W_Kalman<0]
-a <- round(a, digits=0)
-length(which(a!=0)) * 100 / 26400 
 
 # AC consumption, load current and PV power must always be +ve; change all -ve imputed values to zero
 na_seadec_imputedData <- na_seadec_imputedData %>% 

@@ -104,7 +104,7 @@ write.csv(sl_all_rwanda, file=here(filepath,"sl_all_raw.csv"), row.names=FALSE)
 #******************************************************************************************#
 
 #******************************************************************************************#
-# Set working directory to read weather data
+# Set working directory to read weather data - downloaded from Solcast
 filepath <- "Data/Weather data"
 file_list <- list.files(here(filepath))
 output_directory <- "Data"

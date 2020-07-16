@@ -15,9 +15,6 @@ library(timeSeries) # for converting data frame into time series
 library("ggpubr")
 library("imputeTS") # for na_seadec imputation
 library(mgcv) # for gam model-based imputation
-library(simputation) # For impute_knn, impute_rf
-library(randomForest) #For random Forest functions used in the back end by impute_rf
-library(missForest)
 library(xts)
 library(MLmetrics)
 library(extrafont)
@@ -26,7 +23,6 @@ library(here)
 
 #******************************************************************************************#
 # Define macros - theme for all plots
-font_import()
 THEME <- theme(legend.position = "bottom", legend.text=element_text(size=10, family="Times New Roman"),
                legend.key.size = unit(0.5, "cm"),legend.margin = margin(t=0,r=0,b=0,l=0), 
                panel.grid.major.y = element_line(colour="grey"), 
@@ -130,20 +126,10 @@ weather_data <- weather_data[,-c(1:3)] # Remove streetlight, date and time
 system_hourly <- merge(system_hourly, weather_data, by="id")
 system_hourly <- system_hourly[,-1] # Remove id
 system_hourly <- system_hourly[order(system_hourly$streetlight,system_hourly$date,system_hourly$timeUse),]
-write.csv(system_hourly, file=here(filepath,"raw_hourly_sl_data.csv"), row.names=FALSE)
+#write.csv(system_hourly, file=here(filepath,"raw_hourly_sl_data.csv"), row.names=FALSE)
 #******************************************************************************************#
 
 #******************************************************************************************#
-library(tidyverse)
-library(lubridate)
-library(wesanderson)
-library("imputeTS") # for na_seadec imputation
-library(xts)
-library(here)
-
-filepath <- "Data"
-plot_dir <- "Plots/Paper 7"
-
 # Read hourly data and calculate yield
 system_hourly <- read.csv(here(filepath,"raw_hourly_sl_data.csv"), header = TRUE, stringsAsFactors=FALSE)
 system_hourly <- system_hourly %>% mutate(date = as.Date(date))
@@ -155,39 +141,7 @@ system <- gather(system_hourly,"id","value",4:16)
 missingData <- system %>% group_by(streetlight, id) %>%
   summarise(missingPercent = sum(is.na(value))*100/length(value))  
 missingData <- spread(missingData, id, missingPercent)
-write.csv(missingData, file=here(filepath,"missing_sl_data.csv"), row.names=FALSE)
-
-# Calculate yield as % hours on during a day
-sl_on_hours <- system %>% group_by(streetlight, date, id) %>%
-  summarise(yield = length(na.omit(value)) * 100.0 / 24.0 )
-sl_on_hours <- as.data.frame(sl_on_hours)
-
-pal <- wes_palette("Zissou1", 100, type = "continuous")
-ggplot(sl_on_hours[sl_on_hours$id=="PV.power.W",], aes(date, streetlight)) + geom_tile(aes(fill = yield)) +
-  scale_fill_gradientn(colours = pal) + xlab("X axis") + ylab("Y axis") +
-  labs(title="Yield for Rwanda SL: 1 Jul'19 - 30 Apr'20",y="Streetlight",x = "Day of study",fill="Yield")
-ggsave(here(plot_dir,"yield_raw.png"))
-
-ggplot(sl_on_hours, aes(date, id)) + facet_wrap(~streetlight) +  geom_tile(aes(fill = yield)) +
-  scale_fill_gradientn(colours = pal) + xlab("X axis") + ylab("Y axis") +
-  labs(title="Yield for Rwanda SL: 1 Jul'19 - 30 Apr'20", y="Variable",x ="Day of study",fill="Yield") 
-ggsave(here(plot_dir,"yield_sl_all.png"))
-
-# Calculate hourly yield for each day and SL after summarising to hourly means
-sl_on_hours2 <- system %>% group_by(streetlight, date, timeUse, id) %>%
-  summarise(yield = length(na.omit(value)) * 100.0)
-sl_on_hours2 <- as.data.frame(sl_on_hours2)
-
-ggplot(sl_on_hours2[sl_on_hours2$id=="PV.power.W",], aes(date, timeUse)) + facet_wrap(~streetlight) +
-  geom_tile(aes(fill = yield)) + scale_fill_gradientn(colours = pal) + xlab("X axis") + ylab("Y axis") +
-  labs(title="Yield of hourly data for PV power for Rwanda SL: 1 Jul'19 - 30 Apr'20",
-       y="Time of day",x = "Day of study",fill="Yield") + scale_y_continuous(limits=c(0,23),breaks=0:23)
-ggsave(here(plot_dir,"hourly_yield_sl_all.png"))
-ggplot(sl_on_hours2[sl_on_hours2$id=="System.overview.AC.Consumption.L1.W",], aes(date, timeUse)) + 
-  facet_wrap(~streetlight) + geom_tile(aes(fill = yield)) + scale_fill_gradientn(colours = pal) + xlab("X axis") + ylab("Y axis") +
-  labs(title="Yield of hourly data for AC consumption for Rwanda SL: 1 Jul'19 - 30 Apr'20",
-       y="Time of day",x = "Day of study",fill="Yield") + scale_y_continuous(limits=c(0,23),breaks=0:23)
-ggsave(here(plot_dir,"hourly_yield_ACLoad_sl_all.png"))
+#write.csv(missingData, file=here(filepath,"missing_sl_data.csv"), row.names=FALSE)
 #******************************************************************************************#
 
 #******************************************************************************************#
@@ -195,52 +149,6 @@ ggsave(here(plot_dir,"hourly_yield_ACLoad_sl_all.png"))
 system_hourly$na_count <- apply(system_hourly, 1, function(x) sum(is.na(x)))
 # How many have more than 3 variables missing (3 account for inverter and AC consumption data)
 sum(system_hourly$na_count>3) #3486*100/26400 = 13% rows
-#******************************************************************************************#
-
-#******************************************************************************************#
-# Get days for which more than 50% data is missing i.e. yield is less than 50%
-# Cut off of 50% may imply lights could not be turned on coz of low battery power and hence power outage
-# More than 50% data loss may imply other failures
-sl_all_50 <- sl_on_hours[sl_on_hours$id=="PV.power.W" & sl_on_hours$yield<50,] 
-sl_all_50 <- sl_all_50 %>% mutate(month = as.character(month(date, label=TRUE, abbr=TRUE)))
-# Count the number of days per SL - Sl1 43 days, SL2 23 days and SL4 19 days - see if these need to be removed
-sl_all_50_count <- sl_all_50 %>% group_by(streetlight) %>% summarise(count=length(yield))
-# Count days with more than 50% data missing per month
-sl_all_50_monthly <- sl_all_50 %>% group_by(streetlight, month) %>% summarise(count=length(yield))
-
-# Get full days per month
-sl_all_PV_100 <- sl_on_hours[sl_on_hours$id=="PV.power.W" & sl_on_hours$yield==100,] 
-sl_all_PV_100 <- sl_all_PV_100 %>% mutate(month = as.character(month(date, label=TRUE, abbr=TRUE)))
-sl_all_ACLoad_100 <- sl_on_hours[sl_on_hours$id=="System.overview.AC.Consumption.L1.W" & sl_on_hours$yield==100,] 
-sl_all_ACLoad_100 <- sl_all_ACLoad_100 %>% mutate(month = as.character(month(date, label=TRUE, abbr=TRUE)))
-# Count full days per SL for each month
-sl_all_PV_100_count <- sl_all_PV_100 %>% group_by(streetlight,month) %>% summarise(count=length(yield))
-sl_all_ACLoad_100_count <- sl_all_ACLoad_100 %>% group_by(streetlight,month) %>% summarise(count=length(yield))
-#******************************************************************************************#
-
-#******************************************************************************************#
-# Get typical hourly data and see how it varies over time
-system_typical <- system %>% group_by(streetlight, timeUse, id) %>% summarise(value = mean(value, na.rm=TRUE))
-system_typical <- as.data.frame(system_typical)
-system_typical <- system_typical[system_typical$id=="Potential_PV_power_W" | system_typical$id=="PV.power.W" | 
-  system_typical$id=="Charged.energy.W" | system_typical$id=="Solar.Charger.Battery.watts.W" | 
-  system_typical$id=="System.overview.Battery.Power.W" | system_typical$id=="Discharged.energy.W" |
-  system_typical$id=="System.overview.AC.Consumption.L1.W" ,]
-
-plotTypical <- function(df) {
-  ggplot(df, aes(timeUse, abs(value), color=factor(id))) + geom_line(aes(linetype=factor(id))) + 
-    labs(x="Time of day",y="Energy (Wh)",color="Variable",linetype="Variable") + 
-    scale_linetype_discrete(labels=c("Charged energy","Discharged energy","Potential PV power","PV power",
-                                     "Solar Charger Battery Power","AC consumption","System Battery Power"))+
-    scale_color_discrete(labels=c("Charged energy","Discharged energy","Potential PV power","PV power",
-                                  "Solar Charger Battery Power","AC consumption","System Battery Power")) +
-    theme(legend.position = "bottom") +
-    scale_x_continuous(breaks = 0:23) +  scale_y_continuous(breaks=seq(0,225,25))
-}
-
-plotTypical(system_typical) + facet_wrap(~streetlight) +
-  labs(title="Typical day values for Rwanda SL: 01 Jul'19 to 31 Mar'20") 
-ggsave(here(plot_dir,"typical_day_sl_all.png"))
 #******************************************************************************************#
 
 #******************************************************************************************#
@@ -253,69 +161,48 @@ system <- system %>% mutate(month = as.character(month(date, label=TRUE, abbr=TR
                   labels = c("Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar")))
 
 # Plot hourly values against time
+plotHourly <- function(df) {
+  ggplot(df[(df$id=="PV.power.W" | df$id=="Potential_PV_power_W" | 
+                      df$id=="System.overview.Battery.Power.W"),], 
+         aes(timestamp, value, color=as.factor(id))) + facet_wrap(~month2, scales = "free") + 
+    geom_line(aes(linetype=factor(id))) + theme(legend.position = "bottom") + 
+    labs(x="Time", y="Energy (W)", color="Variable", linetype="Variable") + THEME
+}
 subSystem <- system[system$streetlight=="SL1",]
-ggplot(subSystem[(subSystem$id=="PV.power.W" | subSystem$id=="Potential_PV_power_W" |
-                    subSystem$id=="System.overview.Battery.Power.W" |
-                    subSystem$id=="Solar.Charger.Battery.watts.W") & subSystem$month=="Oct",], aes(timestamp, value)) + 
-  facet_wrap(~id) + geom_line() + labs(x="Date", y="Energy (Wh)", 
-       title = "Energy profile of SL1 in Rwanda in Oct 2019")
-
-ggplot(subSystem[(subSystem$id=="PV.power.W" | subSystem$id=="Potential_PV_power_W" | 
-                  subSystem$id=="System.overview.Battery.Power.W"),], 
-       aes(timestamp, value, color=as.factor(id))) + facet_wrap(~month2, scales = "free") + 
-  geom_line(aes(linetype=factor(id))) + theme(legend.position = "bottom") + 
-  labs(x="Day of study", y="Energy (Wh)", color="Variable", linetype="Variable",
-       title = "Energy profile of SL1 in Rwanda: 01 Jul'19 to 30 Apr'20")
+plotHourly(subSystem) + labs(title = "Energy profile of SL1 in Rwanda: 01 Jul'19 to 31 Mar'20")
 ggsave(here(plot_dir,"energy_profile_sl1.png"))
 
 subSystem <- system[system$streetlight=="SL2",]
-ggplot(subSystem[(subSystem$id=="PV.power.W" | subSystem$id=="Potential_PV_power_W" | 
-                    subSystem$id=="System.overview.Battery.Power.W"),], 
-       aes(timestamp, value, color=as.factor(id))) + facet_wrap(~month2, scales = "free") + 
-  geom_line(aes(linetype=factor(id))) + theme(legend.position = "bottom") + 
-  labs(x="Day of study", y="Energy (Wh)", color="Variable", linetype="Variable",
-       title = "Energy profile of SL2 in Rwanda: 01 Jul'19 to 30 Apr'20")
+plotHourly(subSystem) + labs(title = "Energy profile of SL2 in Rwanda: 01 Jul'19 to 31 Mar'20")
 ggsave(here(plot_dir,"energy_profile_sl2.png"))
 
 subSystem <- system[system$streetlight=="SL3",]
-ggplot(subSystem[(subSystem$id=="PV.power.W" | subSystem$id=="Potential_PV_power_W" | 
-                    subSystem$id=="System.overview.Battery.Power.W"),], 
-       aes(timestamp, value, color=as.factor(id))) + facet_wrap(~month2, scales = "free") + 
-  geom_line(aes(linetype=factor(id))) + theme(legend.position = "bottom") + 
-  labs(x="Day of study", y="Energy (Wh)", color="Variable", linetype="Variable",
-       title = "Energy profile of SL3 in Rwanda: 01 Jul'19 to 30 Apr'20")
+plotHourly(subSystem) + labs(title = "Energy profile of SL3 in Rwanda: 01 Jul'19 to 31 Mar'20")
 ggsave(here(plot_dir,"energy_profile_sl3.png"))
 
 subSystem <- system[system$streetlight=="SL4",]
-ggplot(subSystem[(subSystem$id=="PV.power.W" | subSystem$id=="Potential_PV_power_W" | 
-                    subSystem$id=="System.overview.Battery.Power.W"),], 
-       aes(timestamp, value, color=as.factor(id))) + facet_wrap(~month2, scales = "free") + 
-  geom_line(aes(linetype=factor(id))) + theme(legend.position = "bottom") + 
-  labs(x="Day of study", y="Energy (Wh)", color="Variable", linetype="Variable",
-       title = "Energy profile of SL4 in Rwanda: 01 Jul'19 to 30 Apr'20")
+plotHourly(subSystem) + labs(title = "Energy profile of SL4 in Rwanda: 01 Jul'19 to 31 Mar'20")
 ggsave(here(plot_dir,"energy_profile_sl4.png"))
 #******************************************************************************************#
 
 #******************************************************************************************#
 # Box plots 
-ggplot(system[system$id=="PV.power.W",], aes(as.factor(timeUse), abs(value))) + 
-  facet_wrap(~streetlight) + geom_boxplot() + 
-  labs(x="Time of day", y="Energy (Wh)", title = "PV power at Rwanda SL: 01 Jul'19 to 30 Apr'20")
+plotBox <- function(df) {
+  ggplot(df, aes(as.factor(timeUse), abs(value))) + facet_wrap(~streetlight) + geom_boxplot() + 
+    labs(x="Time of day", y="Energy (W)") + THEME
+}
+plotBox(system[system$id=="PV.power.W",]) + labs(title = "PV power at Rwanda SL: 01 Jul'19 to 31 Mar'20")
 ggsave(here(plot_dir,"pv_power.png"))
 
-ggplot(system[system$id=="Charged.energy.W",], aes(as.factor(timeUse), abs(value))) + 
-  facet_wrap(~streetlight) + geom_boxplot() + 
-  labs(x="Time of day", y="Energy (Wh)", title = "Charged energy at Rwanda SL: 01 Jul'19 to 30 Apr'20")
+plotBox(system[system$id=="Charged.energy.W",]) + labs(title = "Charged energy at Rwanda SL: 01 Jul'19 to 31 Mar'20")
 ggsave(here(plot_dir,"charged_energy.png"))
 
-ggplot(system[system$id=="Discharged.energy.W",], aes(as.factor(timeUse), abs(value))) + 
-  facet_wrap(~streetlight) + geom_boxplot() + 
-  labs(x="Time of day", y="Energy (Wh)", title = "Discharged energy at Rwanda SL: 01 Jul'19 to 30 Apr'20")
+plotBox(system[system$id=="Discharged.energy.W",]) + 
+  labs(title = "Discharged energy at Rwanda SL: 01 Jul'19 to 31 Mar'20")
 ggsave(here(plot_dir,"discharged_energy.png"))
 
-ggplot(system[system$id=="System.overview.AC.Consumption.L1.W",], aes(as.factor(timeUse), abs(value))) + 
-  facet_wrap(~streetlight) + geom_boxplot() + 
-  labs(x="Time of day", y="Energy (Wh)", title = "AC consumption at Rwanda SL: 01 Jul'19 to 30 Apr'20")
+plotBox(system[system$id=="System.overview.AC.Consumption.L1.W",]) +
+  labs(title = "AC consumption at Rwanda SL: 01 Jul'19 to 31 Mar'20")
 ggsave(here(plot_dir,"ac_consumption.png"))  
 #******************************************************************************************#
 
@@ -392,7 +279,7 @@ na_seadec_imputedData <- na_seadec_imputedData %>%
                                                    paste(timeUse,":00:00",sep="")), sep=" "), origin="1970-01-01",tz="GMT"),
          month2 = factor(month, levels = c("Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar"),
                          labels = c("Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar")))
-write.csv(na_seadec_imputedData, file=here(filepath,"na_seadec_test_imputed_data.csv"), row.names=FALSE)
+#write.csv(na_seadec_imputedData, file=here(filepath,"na_seadec_test_imputed_data.csv"), row.names=FALSE)
 
 # Calculating RMSE to get performance of na_seadec approach for each SL
 na_seadec_imputedData <- na_seadec_imputedData %>% 
@@ -425,11 +312,13 @@ ggplot(perf_na_seadec_sub[perf_na_seadec_sub$id %in% unique(perf_na_seadec_sub$i
   scale_x_discrete(labels=c("Interpolation","Kalman","LOCF","MA","Mean",
                             "Random")) + labs(y="RMSE (V)",x="na_seadec approach", title="RMSE for Voltage using na_seadec")
 ggsave(here(plot_dir,"rmse_seadec1.png")) 
+
 ggplot(perf_na_seadec_sub[perf_na_seadec_sub$id %in% unique(perf_na_seadec_sub$id)[c(19:24)],], aes(id, value)) + facet_wrap(~streetlight) + 
   geom_bar(stat="identity", width=.3, position = "dodge") + theme(axis.text.x = element_text(angle=45)) +
   scale_x_discrete(labels=c("Interpolation","Kalman","LOCF","MA","Mean",
                             "Random")) + labs(y="RMSE (A)",x="na_seadec approach", title="RMSE for Load current using na_seadec")
 ggsave(here(plot_dir,"rmse_seadec2.png")) 
+
 ggplot(perf_na_seadec_sub[perf_na_seadec_sub$id %in% unique(perf_na_seadec_sub$id)[c(7:18,25:36)],], 
        aes(id, value, fill=id)) + theme(axis.text.x = element_text(angle=90), legend.position = "none") +
   facet_wrap(~streetlight) + labs(x="Variable", y="RMSE (W)", title="RMSE using na_seadec approach") +
@@ -469,7 +358,7 @@ stats_na_seadec_sub <- as.data.frame(stats_na_seadec_sub)
 stats_na_seadec_sub <- stats_na_seadec_sub[complete.cases(stats_na_seadec_sub),]
 stats_na_seadec_sub <- stats_na_seadec_sub %>% mutate(mean=round(mean,2), median=round(median,2),
                                                       sd=round(sd,2), skew=round(skew,2), kurt=round(kurt,2))
-write.table(stats_na_seadec_sub, file = here(filepath,"stats_na_seadec.txt"), sep = ",", quote = FALSE, row.names = F)
+#write.table(stats_na_seadec_sub, file = here(filepath,"stats_na_seadec_test.txt"), sep = ",", quote = FALSE, row.names = F)
 
 # Plot data to check mapping
 ggplot(na_seadec_sub[na_seadec_sub$streetlight=="SL1" & na_seadec_sub$id==unique(na_seadec_sub$id)[c(2,37)],], 
@@ -572,26 +461,4 @@ ggplot(gam_sub[gam_sub$streetlight=="SL1" & gam_sub$id==unique(gam_sub$id)[c(1,7
        aes(timestamp, value, color=id)) + geom_line() + theme(legend.position = "bottom")
 
 # To conclude stats much better when using na_seadec for both PV power and battery power
-#******************************************************************************************#
-
-#******************************************************************************************#
-# Alternative imputation techniques
-# Impute using hot-deck approach using kNN and random forest
-df <- imputedPVPower2[,c(1,2,3,4,12,13)]
-df <- df %>% mutate(knn1 = impute_knn(df, PV.power.W ~ Potential.PV.power.W|streetlight)$PV.power.W,
-                    knn2 = impute_knn(df, PV.power.W ~ Potential.PV.power.W+timeUse|streetlight)$PV.power.W,
-                    knn3 = impute_knn(df, PV.power.W ~ Potential.PV.power.W+timeUse+month|streetlight)$PV.power.W,
-                    rf1 = impute_rf(df, PV.power.W ~ Potential.PV.power.W|streetlight)$PV.power.W,
-                    rf2 = impute_rf(df, PV.power.W ~ Potential.PV.power.W+timeUse|streetlight)$PV.power.W)
-imputedPVPower2 <- imputedPVPower2 %>% mutate(knn1 = df$knn1, knn2 = df$knn2, knn3=df$knn3, 
-                                              rf1 = df$rf1, rf2=df$rf2)  
-
-# Impute using MICE -  SKIP for the moment
-df <- imputedPVPower2[,c(1,3,4,12,13)]
-for(i in seq_along(unique(df$streetlight))) {
-  df_sub <- df[df$streetlight == unique(df$streetlight)[i],]
-  mod <- mice(df_sub[,-c(1,2,3)], method="pmm")$imp$PV.power.W
-  df_sub <- df_sub %>% mutate(mice1=PV.power.W, mice2=PV.power.W)
-  
-}
 #******************************************************************************************#
