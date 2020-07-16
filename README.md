@@ -17,3 +17,4 @@ The below scripts are used for analysis for the paper titled 'Analysis of standa
 * rwanda_sl_imputation_10June.R - to convert data into hourly means and impute missing data using Seas. Corrections using rule based approach are applied to evaluate demand and actual load  
 * rwanda_analysis_2Jul.R - to analyse corrected hourly data and generate plots for the paper
 * rwanda_simulated_data.R - to analyse and plot simulated typical day plots for Nepal and Rwanda streetlights
+* rwanda_data_upload.R - to generate files for upload on Zenodo
