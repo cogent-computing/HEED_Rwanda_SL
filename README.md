@@ -8,7 +8,7 @@ The portal is a one-stop-shop for the raw data collected through project's surve
 The system data used for performance analysis for the paper titled 'Analysis of standalone solar streetlights for improved energy access in displaced settlements' is deposited on Zenodo
 https://zenodo.org/record/3947993#.XxBLRJNKiuU
 
-## Analysis scripts The raw data used for analysis
+## Analysis scripts 
 
 The below scripts are used for analysis for the paper titled 'Analysis of standalone solar streetlights for improved energy access in displaced settlements'
 
