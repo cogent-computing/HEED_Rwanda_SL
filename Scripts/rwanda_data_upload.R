@@ -1,7 +1,7 @@
 #******************************************************************************************#
 # This is the script to prepare data for upload on the data portal                         #
 # Author: K Bhargava                                                                       #
-# Last updated on: 14th July 2020                                                           #
+# Last updated on: 16th July 2020                                                           #
 #******************************************************************************************#
 
 #******************************************************************************************#
@@ -13,7 +13,7 @@ library(here)
 
 #******************************************************************************************#
 # Set working directory 
-filepath <- "Data/Supplementary data"
+filepath <- "Data/Zenodo"
 #******************************************************************************************#
 
 #******************************************************************************************#
@@ -32,28 +32,31 @@ sl_all <- distinct(sl_all)
 # Remove date
 sl_all <- sl_all[,-8]
 # Rename columns
-colnames(sl_all) <- c("Timestamp", "Streetlight", "Battery.Monitor.State.of.Charge",
-                      "Solar.Charger.Battery.Power.W", "System.Overview.AC.Consumption.W",
-                      "System.Overview.Battery.Power.W", "Solar.Charger.PV.Power.W")
+colnames(sl_all) <- c("Timestamp (Africa/Kigali)", "Streetlight", "Battery Monitor State of Charge (%)",
+                      "Solar Charger Battery Power (W)", "System Overview AC Consumption (W)",
+                      "System Overview Battery Power (W)", "Solar Charger PV Power (W)")
+
 # Re-arrange columns
 sl_all <- sl_all[,c(1,2,3,4,7,5,6)]
 #******************************************************************************************#
 
 #******************************************************************************************#
 # Save data for each SL
+filepath <- "Data/Zenodo/Rwanda SL"
+
 sl <- sl_all[sl_all$Streetlight=="SL1", -2] #SL1
 sl <- sl[order(sl$Timestamp),]
-write.csv(sl, file=here(filepath,"SL1.csv"), row.names=FALSE)
+write.csv(sl, file=here(filepath,"Rwanda_SL1.csv"), row.names=FALSE)
 
 sl <- sl_all[sl_all$Streetlight=="SL2", -2] #SL2
 sl <- sl[order(sl$Timestamp),]
-write.csv(sl, file=here(filepath,"SL2.csv"), row.names=FALSE)
+write.csv(sl, file=here(filepath,"Rwanda_SL2.csv"), row.names=FALSE)
 
 sl <- sl_all[sl_all$Streetlight=="SL3", -2] #SL3
 sl <- sl[order(sl$Timestamp),]
-write.csv(sl, file=here(filepath,"SL3.csv"), row.names=FALSE)
+write.csv(sl, file=here(filepath,"Rwanda_SL3.csv"), row.names=FALSE)
 
 sl <- sl_all[sl_all$Streetlight=="SL4", -2] #SL4
 sl <- sl[order(sl$Timestamp),]
-write.csv(sl, file=here(filepath,"SL4.csv"), row.names=FALSE)
+write.csv(sl, file=here(filepath,"Rwanda_SL4.csv"), row.names=FALSE)
 #******************************************************************************************#
